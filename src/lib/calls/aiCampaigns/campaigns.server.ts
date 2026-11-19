@@ -676,14 +676,22 @@ export async function listAiLeads(campaignId: string, query: AiLeadsQuery): Prom
   const q = query.q?.trim();
   if (q) {
     const pattern = likePattern(q);
+    // Phone numbers match on their digits alone, so "+91", "98100 12345" and
+    // "9810012345" all find "+91 98100 12345". Any digits count: a minimum
+    // length made a country code like "+91" match nothing.
     const digits = q.replace(/[^\d]/g, "");
     conditions.push(
       or(
         ilike(people.fullName, pattern),
         ilike(people.firstName, pattern),
         ilike(people.lastName, pattern),
+        ilike(people.email, pattern),
+        ilike(people.title, pattern),
+        ilike(people.phone, pattern),
         ilike(companies.name, pattern),
-        digits.length >= 3 ? sql`regexp_replace(${people.phone}, '[^0-9]', '', 'g') like ${`%${digits}%`}` : undefined,
+        // The company shown for a lead without a linked company comes from its import row.
+        sql`coalesce(${people.raw}->>'companyName', ${people.raw}->>'company', '') ilike ${pattern}`,
+        digits ? sql`regexp_replace(coalesce(${people.phone}, ''), '[^0-9]', '', 'g') like ${`%${digits}%`}` : undefined,
       ),
     );
   }
