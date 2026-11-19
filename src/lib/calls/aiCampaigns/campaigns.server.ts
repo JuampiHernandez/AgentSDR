@@ -685,6 +685,7 @@ export async function listAiLeads(campaignId: string, query: AiLeadsQuery): Prom
         ilike(people.fullName, pattern),
         ilike(people.firstName, pattern),
         ilike(people.lastName, pattern),
+        ilike(sql`concat_ws(' ', ${people.firstName}, ${people.lastName})`, pattern),
         ilike(people.email, pattern),
         ilike(people.title, pattern),
         ilike(people.phone, pattern),

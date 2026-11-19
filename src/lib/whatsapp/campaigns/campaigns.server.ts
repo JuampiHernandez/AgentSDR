@@ -375,14 +375,19 @@ export async function listWhatsappCampaignLeads(
   const q = query.q?.trim();
   if (q) {
     const pattern = `%${escapeLike(q)}%`;
+    const digits = q.replace(/[^\d]/g, "");
     filters.push(
       or(
         ilike(people.fullName, pattern),
         ilike(people.firstName, pattern),
         ilike(people.lastName, pattern),
         ilike(sql`concat_ws(' ', ${people.firstName}, ${people.lastName})`, pattern),
+        ilike(people.email, pattern),
+        ilike(people.title, pattern),
         ilike(whatsappCampaignLeads.phone, pattern),
         ilike(companies.name, pattern),
+        // Phone numbers match on their digits alone: "98100 12345" finds "+919810012345".
+        digits ? sql`regexp_replace(coalesce(${whatsappCampaignLeads.phone}, ''), '[^0-9]', '', 'g') like ${`%${digits}%`}` : undefined,
       ),
     );
   }
