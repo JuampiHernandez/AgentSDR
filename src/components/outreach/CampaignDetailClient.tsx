@@ -223,7 +223,7 @@ export default function CampaignDetailClient({
         {tab === "mailboxes" && (
           <CampaignMailboxesTab
             campaignId={campaign.id}
-            initialMailboxIds={campaign.mailboxIds}
+            mailboxIds={campaign.mailboxIds}
             mailboxes={mailboxes}
             otherCampaigns={otherCampaigns}
             onSaved={() => router.refresh()}
