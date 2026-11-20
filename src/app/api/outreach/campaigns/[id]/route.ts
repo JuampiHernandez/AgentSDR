@@ -4,10 +4,12 @@ import {
   updateCampaignName,
   updateCampaignSequence,
   setCampaignStatus,
+  updateCampaignMailboxes,
   deleteCampaign,
   getCampaignStats,
 } from "@/lib/outreach/campaigns";
 import type { SequenceStep, CampaignStatus } from "@/lib/outreach/schema";
+import { parseCampaignMailboxIds } from "@/lib/outreach/campaignMailboxes";
 import { withOrgContext, authContextErrorResponse } from "@/lib/auth/context";
 
 // GET /api/outreach/campaigns/[id]
@@ -27,7 +29,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
-// PATCH /api/outreach/campaigns/[id] — { name?, sequence?, status? }
+// PATCH /api/outreach/campaigns/[id]: { name?, sequence?, status?, mailboxIds? }
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     return await withOrgContext(req, async () => {
@@ -35,11 +37,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const campaign = await getCampaign(id);
       if (!campaign) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-      let body: { name?: string; sequence?: SequenceStep[]; status?: CampaignStatus };
+      let body: { name?: string; sequence?: SequenceStep[]; status?: CampaignStatus; mailboxIds?: unknown };
       try {
         body = await req.json();
       } catch {
         return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+      }
+
+      // Checked before anything is written, so a bad list changes nothing.
+      let mailboxIds: string[] | null | undefined;
+      if (body.mailboxIds !== undefined) {
+        const parsed = parseCampaignMailboxIds(body.mailboxIds);
+        if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+        mailboxIds = parsed.mailboxIds;
       }
 
       if (body.name !== undefined) {
@@ -47,6 +57,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         await updateCampaignName(id, body.name);
       }
       if (body.sequence) await updateCampaignSequence(id, body.sequence);
+      if (mailboxIds !== undefined && !(await updateCampaignMailboxes(id, mailboxIds))) {
+        return NextResponse.json({ error: "One of those mailboxes is not connected to this organization" }, { status: 400 });
+      }
+      // A campaign whose chosen mailboxes were all removed would sit active
+      // and send nothing; say so instead of launching it.
+      const finalMailboxIds = mailboxIds !== undefined ? mailboxIds : campaign.mailboxIds;
+      if (body.status === "active" && finalMailboxIds?.length === 0) {
+        return NextResponse.json({ error: "Choose at least one mailbox for this campaign first" }, { status: 400 });
+      }
       if (body.status) await setCampaignStatus(id, body.status);
 
       const updated = await getCampaign(id);

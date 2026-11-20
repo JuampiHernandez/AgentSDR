@@ -103,10 +103,12 @@ export type SequenceStep = {
 };
 
 /**
- * No mailboxId here — mailbox assignment is per-lead (see outreachLeads),
+ * No mailboxId here: mailbox assignment is per-lead (see outreachLeads),
  * not per-campaign, so multiple active campaigns can share the same pool of
  * connected mailboxes without starving each other (matches AgentSDR-app's
- * make-mailbox-queue-for-team.ts model).
+ * make-mailbox-queue-for-team.ts model). `mailboxIds` only narrows that pool:
+ * null means every connected mailbox, a list means a new lead is only ever
+ * given one of those (src/lib/outreach/campaignMailboxes.ts).
  */
 export const outreachCampaigns = pgTable("outreach_campaigns", {
   organizationId: uuid("organization_id")
@@ -116,6 +118,8 @@ export const outreachCampaigns = pgTable("outreach_campaigns", {
   name: text("name").notNull(),
   status: text("status").notNull().default("draft").$type<CampaignStatus>(),
   sequence: jsonb("sequence").notNull().default([]).$type<SequenceStep[]>(),
+  /** The mailboxes this campaign may send from; null = all connected (scripts/add-campaign-mailboxes.ts). */
+  mailboxIds: uuid("mailbox_ids").array(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 },

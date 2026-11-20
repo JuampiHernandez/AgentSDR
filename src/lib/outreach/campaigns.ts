@@ -143,6 +143,26 @@ export async function updateCampaignName(id: string, name: string) {
     .where(and(inOrg(outreachCampaigns), eq(outreachCampaigns.id, id)));
 }
 
+/**
+ * Sets the mailboxes a campaign may send from (null = all connected). False
+ * when a listed id is not one of this organization's mailboxes. Leads that
+ * already started keep their mailbox; see campaignMailboxes.ts.
+ */
+export async function updateCampaignMailboxes(id: string, mailboxIds: string[] | null): Promise<boolean> {
+  if (mailboxIds) {
+    const owned = await db
+      .select({ id: mailboxes.id })
+      .from(mailboxes)
+      .where(and(inOrg(mailboxes), inArray(mailboxes.id, mailboxIds)));
+    if (owned.length !== mailboxIds.length) return false;
+  }
+  await db
+    .update(outreachCampaigns)
+    .set({ mailboxIds, updatedAt: new Date() })
+    .where(and(inOrg(outreachCampaigns), eq(outreachCampaigns.id, id)));
+  return true;
+}
+
 export async function setCampaignStatus(id: string, status: CampaignStatus) {
   await db.update(outreachCampaigns).set({ status, updatedAt: new Date() }).where(and(inOrg(outreachCampaigns), eq(outreachCampaigns.id, id)));
 }

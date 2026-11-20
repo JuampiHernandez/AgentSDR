@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   RiBarChart2Line,
   RiListOrdered2,
+  RiMailLine,
   RiMailSendLine,
   RiPauseCircleLine,
   RiPlayCircleLine,
@@ -22,6 +23,7 @@ import { StatRow } from "@/components/page/StatRow";
 import AnalyticsTab from "./AnalyticsTab";
 import LeadsTab from "./LeadsTab";
 import SequenceTab from "./SequenceTab";
+import CampaignMailboxesTab, { type OtherCampaign } from "./CampaignMailboxesTab";
 import type { outreachCampaigns, mailboxes } from "@/lib/outreach/schema";
 import type { LeadPage, DailySends, CampaignPulse } from "@/lib/outreach/campaigns";
 
@@ -56,7 +58,7 @@ const STATUS_LABEL: Record<string, string> = {
   completed: "Completed",
 };
 
-type TabId = "analytics" | "leads" | "sequence";
+type TabId = "analytics" | "leads" | "sequence" | "mailboxes";
 
 function createdAt(date: string | Date | null): string {
   if (!date) return "—";
@@ -90,6 +92,7 @@ export default function CampaignDetailClient({
   stepBreakdown,
   dailySends,
   pulse,
+  otherCampaigns,
 }: {
   campaign: Campaign;
   stats: Stats;
@@ -98,6 +101,7 @@ export default function CampaignDetailClient({
   stepBreakdown: StepBreakdown;
   dailySends: DailySends;
   pulse: CampaignPulse;
+  otherCampaigns: OtherCampaign[];
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<TabId>("analytics");
@@ -109,7 +113,10 @@ export default function CampaignDetailClient({
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
 
-  const connectedMailboxes = mailboxes.filter((m) => m.status === "connected");
+  // The mailboxes this campaign may send from: all connected, or the chosen ones.
+  const connectedMailboxes = mailboxes.filter(
+    (m) => m.status === "connected" && (campaign.mailboxIds === null || campaign.mailboxIds.includes(m.id)),
+  );
   const canLaunch =
     campaign.status === "draft" &&
     connectedMailboxes.length > 0 &&
@@ -159,7 +166,7 @@ export default function CampaignDetailClient({
         size="small"
         onClick={handleLaunch}
         disabled={!canLaunch || launching}
-        title={!canLaunch ? "Needs a connected mailbox, a complete sequence, and at least one lead" : undefined}
+        title={!canLaunch ? "Needs a connected sending mailbox, a complete sequence, and at least one lead" : undefined}
       >
         <Button.Icon as={RiPlayCircleLine} />
         {launching ? "Launching…" : campaign.status === "paused" ? "Resume" : "Launch campaign"}
@@ -202,6 +209,7 @@ export default function CampaignDetailClient({
           { value: "analytics", label: "Analytics", icon: RiBarChart2Line },
           { value: "leads", label: "Leads", icon: RiTeamLine, count: leadPage.total },
           { value: "sequence", label: "Sequence", icon: RiListOrdered2, count: campaign.sequence.length },
+          { value: "mailboxes", label: "Mailboxes", icon: RiMailLine, count: connectedMailboxes.length },
         ]}
       />
 
@@ -211,6 +219,15 @@ export default function CampaignDetailClient({
         )}
         {tab === "leads" && (
           <LeadsTab campaignId={campaign.id} initialPage={leadPage} onImported={() => router.refresh()} />
+        )}
+        {tab === "mailboxes" && (
+          <CampaignMailboxesTab
+            campaignId={campaign.id}
+            initialMailboxIds={campaign.mailboxIds}
+            mailboxes={mailboxes}
+            otherCampaigns={otherCampaigns}
+            onSaved={() => router.refresh()}
+          />
         )}
         {sequenceOpened && (
           <div hidden={tab !== "sequence"}>

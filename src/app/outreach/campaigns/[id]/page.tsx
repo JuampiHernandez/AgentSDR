@@ -7,6 +7,7 @@ import {
   getCampaignStepBreakdown,
   getCampaignDailySends,
   getCampaignPulse,
+  listCampaigns,
 } from "@/lib/outreach/campaigns";
 import { listMailboxes } from "@/lib/outreach/mailboxes";
 import { requirePageOrgContext } from "@/lib/auth/context";
@@ -26,14 +27,18 @@ async function renderCampaign(id: string) {
 
   // Only the first page of leads is serialized into the document — a campaign
   // with thousands of leads would otherwise ship ~0.9MB of JSON per page load.
-  const [stats, mailboxes, leadPage, stepBreakdown, dailySends, pulse] = await Promise.all([
+  const [stats, mailboxes, leadPage, stepBreakdown, dailySends, pulse, campaigns] = await Promise.all([
     getCampaignStats(id),
     listMailboxes(),
     getCampaignLeadsPage(id, { page: 1 }),
     getCampaignStepBreakdown(id),
     getCampaignDailySends(id, { days: 30, timeZone: "Asia/Kolkata" }),
     getCampaignPulse(id),
+    listCampaigns(),
   ]);
+  const otherCampaigns = campaigns
+    .filter((c) => c.id !== id)
+    .map((c) => ({ id: c.id, name: c.name, status: c.status, mailboxIds: c.mailboxIds }));
 
   return (
     <div className="flex h-full overflow-hidden bg-bg-white-0">
@@ -46,6 +51,7 @@ async function renderCampaign(id: string) {
           stepBreakdown={stepBreakdown}
           dailySends={dailySends}
           pulse={pulse}
+          otherCampaigns={otherCampaigns}
         />
       </div>
     </div>
