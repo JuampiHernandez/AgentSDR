@@ -97,7 +97,7 @@ export const CHANNEL_RULES = {
       max: 200,
       safe: { above: 50 },
       warning: "Above about 50 a day from one Google Workspace mailbox, deliverability usually drops and Google may throttle it.",
-      override: "Each mailbox can set its own limit in Email → Accounts.",
+      override: "Mailboxes connected earlier keep their own limit: change it from the mailbox's Name and daily limit action in Email → Mailboxes.",
     },
     {
       key: "sendGapMinutes",
@@ -115,7 +115,7 @@ export const CHANNEL_RULES = {
       key: "sendingHours",
       kind: "hours",
       label: "Sending hours for new mailboxes",
-      help: "When a newly connected mailbox may send. Each mailbox can change its own hours in Email → Accounts.",
+      help: "When a newly connected mailbox may send. Each mailbox can change its own hours in Email → Mailboxes.",
       default: { timezone: "Asia/Kolkata", days: [1, 2, 3, 4, 5], start: "09:00", end: "18:00" },
     },
     {

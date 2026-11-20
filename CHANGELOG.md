@@ -36,6 +36,11 @@ Each release lists the database migrations it needs; see
   (`POST /api/v1/campaigns/:id/leads`, the same duplicate and suppression
   rules as a sheet import) and stop a lead's sequence without suppressing
   them (`POST /api/v1/campaigns/:id/leads/stop`). See `docs/api.mdx`.
+- **Edit a mailbox's display name and daily limit.** Settings, Email,
+  Mailboxes: a mailbox's menu has **Name and daily limit**. Both were set
+  only when the mailbox was connected, and changing the "Emails per day"
+  Sending rule does not touch mailboxes connected earlier, so there was no
+  way to change either afterwards (`PATCH /api/outreach/mailboxes/:id`).
 
 ### Migrations
 
