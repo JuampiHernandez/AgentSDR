@@ -2,7 +2,6 @@ import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { isPersonDoNotContact } from "./policies";
 import { followUpDateError } from "./followUpDate";
 import { followUpNoteError } from "./followUpNote";
-import { assertWorkflowTransition } from "./stateMachine";
 import { appendCrmEvent } from "./events";
 import {
   acknowledgeClassificationInTransaction,
@@ -20,6 +19,7 @@ import {
   crmDrafts,
   crmJobs,
   crmRecords,
+  crmSendAttempts,
   crmSequenceRuns,
   type CrmCategoryKey,
 } from "./schema";
@@ -451,16 +451,31 @@ export async function scheduleFollowUpOn(input: {
     const record = await lockCrmRecord(tx, input.recordId);
     if (record.workflowState === "closed") throw new CrmConflictError("Reopen the lead first");
     if (await isPersonDoNotContact(tx, record.personId)) throw new CrmConflictError("This Person is globally marked Do Not Contact");
-    const [uncertain] = await tx.select({ id: crmDrafts.id }).from(crmDrafts)
-      .where(and(eq(crmDrafts.crmRecordId, record.id), eq(crmDrafts.status, "delivery_uncertain"))).limit(1);
-    if (uncertain) throw new CrmConflictError("The last message may not have gone out. Open the record, mark that send delivered or not delivered, then set the follow-up.");
-    assertWorkflowTransition(record.workflowState, "waiting");
+    // A follow-up date is a person's decision, so it applies from any open
+    // state (error and idle included), not only the moves the workflow makes
+    // by itself. The version bump below makes anything in flight stale.
+    const now = new Date();
+    // A send nobody could confirm would keep the lead in Action required as a
+    // problem. Deciding to follow up later is moving on from it: it is set
+    // aside, its outcome recorded as unknown, never resent.
+    const uncertain = await tx.select({ id: crmDrafts.id }).from(crmDrafts)
+      .where(and(eq(crmDrafts.crmRecordId, record.id), eq(crmDrafts.status, "delivery_uncertain")));
+    const setAside = uncertain.map((draft) => draft.id);
+    if (setAside.length) {
+      await tx.update(crmSendAttempts).set({
+        status: "reconciled",
+        reconciledAt: now,
+        reconciliationNote: `Delivery unknown; set aside when a follow-up was scheduled for ${input.at.toISOString().slice(0, 10)}`,
+        updatedAt: now,
+      }).where(and(inArray(crmSendAttempts.draftId, setAside), eq(crmSendAttempts.status, "delivery_uncertain")));
+      await tx.update(crmDrafts).set({ status: "discarded", autoSendAt: null, updatedAt: now })
+        .where(inArray(crmDrafts.id, setAside));
+    }
     await interruptActiveSequenceRunInTransaction(tx, {
       recordId: record.id,
       reason: "follow_up_scheduled",
       contextVersion: record.contextVersion,
     });
-    const now = new Date();
     await tx.update(crmSequenceRuns).set({ status: "cancelled", updatedAt: now })
       .where(and(eq(crmSequenceRuns.crmRecordId, record.id), eq(crmSequenceRuns.status, "interrupted")));
     // Nothing may go out before the date, auto-send included. (The version
@@ -480,6 +495,7 @@ export async function scheduleFollowUpOn(input: {
       actorRef: input.actorRef,
       fromData: { workflowState: record.workflowState, nextActionAt: record.nextActionAt },
       toData: { dueAt: input.at.toISOString(), note },
+      meta: setAside.length ? { uncertainDraftsSetAside: setAside } : null,
       contextVersion: nextContextVersion,
     });
     return updated!;
