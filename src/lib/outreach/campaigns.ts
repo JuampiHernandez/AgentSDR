@@ -2,6 +2,7 @@ import { eq, desc, asc, and, count, max, inArray, or, sql, lte, gte, isNotNull }
 import { db } from "@/lib/db";
 import { companies, people } from "@/lib/leads/schema";
 import { personVariables, variableValue } from "@/lib/leads/variables";
+import { campaignMergeFields, type CampaignMergeField } from "./mergeFields";
 import { outreachCampaigns, outreachLeads, outreachEmails, mailboxes } from "./schema";
 import type { SequenceStep, CampaignStatus, OutreachLeadStatus } from "./schema";
 import { currentOrganizationId, inOrg } from "@/lib/tenancy/scope";
@@ -201,7 +202,7 @@ function resolveLeadProfile(lead: typeof outreachLeads.$inferSelect, person: typ
  * see leadImport.ts). Drives the token chips in the sequence editor so the
  * user only sees fields that will actually resolve to something.
  */
-export async function getCampaignMergeFields(campaignId: string) {
+export async function getCampaignMergeFields(campaignId: string): Promise<{ fields: CampaignMergeField[]; totalLeads: number }> {
   const leads = await db
     .select({ person: people, company: companies })
     .from(outreachLeads)
@@ -209,23 +210,8 @@ export async function getCampaignMergeFields(campaignId: string) {
     .leftJoin(companies, eq(people.companyId, companies.id))
     .where(and(leadsInOrg(), inOrg(people), eq(outreachLeads.campaignId, campaignId)));
 
-  const customKeys: string[] = [];
-  const seen = new Set<string>();
-  for (const { person, company } of leads) {
-    for (const [key, value] of Object.entries(personVariables(person, company))) {
-      if (!value || seen.has(key.toLowerCase())) continue;
-      seen.add(key.toLowerCase());
-      customKeys.push(key);
-    }
-  }
-
-  return customKeys.map((key) => ({ token: key, label: humanizeKey(key) }));
-}
-
-/** "jobTitle" -> "Job title", the inverse of leadImport's toCamelCaseKey, for chip tooltips. */
-function humanizeKey(key: string): string {
-  const spaced = key.replace(/[_-]+/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2").trim();
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
+  const bags = leads.map(({ person, company }) => personVariables(person, company));
+  return { fields: campaignMergeFields(bags), totalLeads: bags.length };
 }
 
 /** A lead row plus the per-row extras the leads table renders. */

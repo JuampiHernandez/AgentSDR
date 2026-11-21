@@ -12,6 +12,8 @@ type Preview = {
   body: string;
   html: string;
   unresolved: string[];
+  /** Fields this lead lacks that send their fallback text instead. */
+  usedFallback?: string[];
   lead: PreviewLead | null;
   mailbox: PreviewMailbox | null;
 };
@@ -102,7 +104,8 @@ export default function PreviewModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const hasSpinText = /\{[^{}]*\|[^{}]*\}/.test(`${step.subject} ${step.body}`);
+  // {{key|fallback}} is not spin text: drop merge fields before looking.
+  const hasSpinText = /\{[^{}]*\|[^{}]*\}/.test(`${step.subject} ${step.body}`.replace(/\{\{[^{}]*\}\}/g, ""));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -165,10 +168,16 @@ export default function PreviewModal({
                 <div className="mb-4 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 px-3 py-2">
                   <p className="text-xs text-amber-800 dark:text-amber-400">
                     <span className="font-semibold">Empty for this lead:</span>{" "}
-                    <span className="font-mono">{preview.unresolved.map((t) => `{{${t}}}`).join(", ")}</span> — these render as
-                    blank. Check another lead or pick a different column.
+                    <span className="font-mono">{preview.unresolved.map((t) => `{{${t}}}`).join(", ")}</span>. These render as
+                    blank. Add fallback text, check another lead or pick a different column.
                   </p>
                 </div>
+              )}
+              {(preview.usedFallback?.length ?? 0) > 0 && (
+                <p className="mb-4 text-xs text-text-sub-600">
+                  This lead has no <span className="font-mono">{preview.usedFallback!.map((t) => `{{${t}}}`).join(", ")}</span>, so the
+                  fallback text is used.
+                </p>
               )}
 
               <div className="mb-1 text-[11px] uppercase tracking-wide text-text-strong-950/35">From</div>

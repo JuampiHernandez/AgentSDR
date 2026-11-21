@@ -28,18 +28,45 @@ export function resolveSpinText(template: string): string {
   });
 }
 
+// A merge field: {{key}} or {{key|fallback}}. No braces or line breaks inside.
+const MERGE_TOKEN = /\{\{\s*([^{}\r\n]+?)\s*\}\}/g;
+
+/**
+ * Splits the inside of a merge field into its key and fallback. The fallback
+ * is whatever follows the first "|", trimmed; `{{firstName|there}}` sends
+ * "there" to a lead with no first name. No "|" (or nothing after it) means no
+ * fallback, so the field renders empty as before.
+ */
+export function parseMergeToken(raw: string): { key: string; fallback: string | null } {
+  const bar = raw.indexOf("|");
+  if (bar === -1) return { key: raw.trim(), fallback: null };
+  const fallback = raw.slice(bar + 1).trim();
+  return { key: raw.slice(0, bar).trim(), fallback: fallback || null };
+}
+
+/** Every merge field a template uses, in order, with its fallback. */
+export function mergeTokens(template: string): Array<{ key: string; fallback: string | null }> {
+  return [...template.matchAll(MERGE_TOKEN)].map((m) => parseMergeToken(m[1]));
+}
+
 export function fillTemplate(
   template: string,
   variables: Record<string, string>,
 ): string {
   const lookup = new Map(Object.entries(variables).map(([k, v]) => [k.toLowerCase(), v]));
-  return resolveSpinText(template).replace(
-    /\{\{\s*([^{}\r\n]+?)\s*\}\}/g,
-    (match, rawKey: string) => {
-      const key = rawKey.trim();
-      return key.toLowerCase() === "signature" ? match : lookup.get(key.toLowerCase()) ?? "";
-    },
-  );
+  // Merge fields are set aside while spin text resolves: "{{firstName|there}}"
+  // contains "{firstName|there}", which spin text would otherwise read as a
+  // choice between "firstName" and "there". Lead data is still substituted
+  // only after, so a value containing "{" or "|" is never spun either.
+  const held: string[] = [];
+  const masked = template.replace(MERGE_TOKEN, (match) => `\u0000${held.push(match) - 1}\u0000`);
+  return resolveSpinText(masked).replace(/\u0000(\d+)\u0000/g, (_m, index: string) => {
+    const match = held[Number(index)];
+    const { key, fallback } = parseMergeToken(match.slice(2, -2));
+    if (key.toLowerCase() === "signature") return match;
+    const value = lookup.get(key.toLowerCase());
+    return value && value.trim() ? value : fallback ?? "";
+  });
 }
 
 /** Appended to every outreach send — compliance requirement AgentSDR-app never actually had either (see audit notes). */
