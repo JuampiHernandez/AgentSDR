@@ -19,7 +19,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 // Reasoning models think inside this budget before the call; see structuredCompletion.
 const DEFAULT_MAX_OUTPUT_TOKENS = 6_000;
 const MAX_TEXT_LENGTH = 100_000;
-const OUTPUT_KEYS = new Set(["subject", "bodyText", "bodyHtml"]);
+const OUTPUT_KEYS = new Set(["subject", "bodyText", "bodyHtml", "addressTo"]);
 
 /** The prompts a draft is built from (src/lib/prompts/crm.ts). */
 export const DRAFT_PROMPTS = [
@@ -197,6 +197,12 @@ export type CrmDraftContent = {
   subject: string | null;
   bodyText: string;
   bodyHtml: string | null;
+  /**
+   * Email only: the address the writer says this message is for when it is
+   * not the person (a new point of contact). Not trusted as is — see
+   * src/lib/crm/draftRecipients.ts. Null = the person, or no opinion.
+   */
+  addressTo?: string | null;
 };
 
 export type GeneratedCrmDraft = CrmDraftContent & {
@@ -312,11 +318,15 @@ export function draftJsonSchema(channel: CrmChannel): Record<string, unknown> {
       return {
         type: "object",
         additionalProperties: false,
-        required: ["subject", "bodyText", "bodyHtml"],
+        required: ["subject", "bodyText", "bodyHtml", "addressTo"],
         properties: {
           subject: { type: "string", minLength: 1, maxLength: 998 },
           bodyText: { type: "string", minLength: 1 },
           bodyHtml: { anyOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
+          addressTo: {
+            anyOf: [{ type: "string", maxLength: 320 }, { type: "null" }],
+            description: "Null sends to the person. The email address of a different point of contact this message is written to, exactly as it appears in recentConversation; the person is then copied.",
+          },
         },
       };
     case "linkedin":
@@ -478,10 +488,15 @@ export function validateDraftOutput(raw: unknown, channel: CrmChannel): CrmDraft
       throw new Error("CRM email draft subject is required");
     }
     if (value.subject.length > 998) throw new Error("CRM email draft subject is too long");
+    // Absent is the same as null: a writer on an older prompt never sends it.
+    if (value.addressTo !== undefined && value.addressTo !== null && typeof value.addressTo !== "string") {
+      throw new Error("CRM email draft addressTo must be a string or null");
+    }
     return {
       subject: value.subject.trim(),
       bodyText: value.bodyText.trim(),
       bodyHtml: typeof value.bodyHtml === "string" ? value.bodyHtml.trim() : null,
+      addressTo: typeof value.addressTo === "string" && value.addressTo.trim() ? value.addressTo.trim() : null,
     };
   }
 
@@ -493,6 +508,7 @@ export function validateDraftOutput(raw: unknown, channel: CrmChannel): CrmDraft
     throw new Error(`CRM ${label} draft subject must be null or absent`);
   }
   if (value.bodyHtml !== null) throw new Error(`CRM ${label} draft bodyHtml must be null`);
+  if (value.addressTo !== undefined && value.addressTo !== null) throw new Error(`CRM ${label} draft addressTo must be null or absent`);
   return { subject: null, bodyText: value.bodyText.trim(), bodyHtml: null };
 }
 

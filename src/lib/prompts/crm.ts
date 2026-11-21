@@ -36,7 +36,8 @@ Operator instructions follow, written by the team that runs this CRM. Follow the
     template: `{{#email}}Return a non-empty subject and plain-text body.
 bodyHtml may contain an equivalent HTML rendering or null.
 Do not include threading headers or send instructions.
-Messages in recentConversation may list participants (from, to, cc). If others are copied on the thread, write so it reads correctly to all of them; the reply goes to the person and the rep may Cc the others.{{/email}}
+Messages in recentConversation may list participants (from, to, cc). If others are copied on the thread, write so it reads correctly to all of them; the reply goes to the person and the rep may Cc the others.
+addressTo is who the message is written to. Leave it null to write to the person. When the conversation has handed us to a different point of contact (the person introduced or copied in a colleague, or gave another person's email address as the right contact) and this message is for that contact, set addressTo to that contact's email address exactly as it appears in recentConversation and write to them by name: the person who referred us is copied, so thank them in a line and do not repeat what they already know. If the latest message is from that contact, or our last message already went to them (its participants.to), keep addressTo on them. Never guess or construct an address; with no address in the conversation, write to the person and ask them for it.{{/email}}
 {{#linkedin}}Return subject as null. LinkedIn drafts never have a subject.
 Return a plain-text body and bodyHtml as null.
 Do not claim the message was sent or schedule it.{{/linkedin}}

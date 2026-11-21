@@ -329,6 +329,16 @@ Long-term loop. `scripts/apply-crm-follow-up-template.ts` (dry run unless
 `--apply`; `--loop-existing` chains existing interested-stage sequences)
 brings an existing organization up to it without replacing its assignments.
 
+**A hand-off to a new point of contact** (email only,
+`src/lib/crm/draftRecipients.ts`). When the thread hands us to someone else
+(introduced, copied in, or an address given), the draft writer names them in
+`addressTo`; the draft is then To the new contact with the Person in Cc
+(`crm_drafts.to_email` / `cc_emails`, `scripts/add-crm-draft-recipients.ts`),
+and `sendDraft` sends with them. An address is believed only if it appears
+in the conversation the writer was shown. Follow-ups keep going where our
+last message went. The record stays the Person's; the new contact's replies
+on the thread attach to it (`replyBridge.ts`). Both draft editors show To/Cc.
+
 An **out-of-office** reply needs no answer and never reaches Action required
 (`src/lib/crm/outOfOffice.ts`). Ingest still stops the person's outreach on
 arrival, but first writes down what it stopped (`outreach.paused_by_reply`

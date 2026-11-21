@@ -931,6 +931,13 @@ export const crmDrafts = pgTable(
     aiBodyHtml: text("ai_body_html"),
     editedBodyText: text("edited_body_text"),
     editedBodyHtml: text("edited_body_html"),
+    /**
+     * Email only. The To when it is not the record's Person — the new point of
+     * contact the thread handed us to (src/lib/crm/draftRecipients.ts); null
+     * sends to the Person. `ccEmails` is who is copied (the Person, then).
+     */
+    toEmail: text("to_email"),
+    ccEmails: jsonb("cc_emails").$type<string[] | null>(),
     status: text("status").notNull().default("generating").$type<CrmDraftStatus>(),
     provider: text("provider"),
     model: text("model"),

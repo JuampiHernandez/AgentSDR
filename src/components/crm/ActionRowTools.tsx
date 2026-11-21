@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect */
 
+import { DraftRecipients } from "./DraftRecipients";
 import { useEffect, useRef, useState } from "react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import {
@@ -642,6 +643,7 @@ export function InlineDraftEditor({ action, onMutate, onClose, busy }: { action:
   const draft = asObject(action.draft);
   const inbound = asObject(action.latestInbound);
   const policy = asObject(action.contactPolicy);
+  const person = asObject(action.person);
   const channel = String(draft.channel ?? action.channel ?? "email");
   const initialBody = String(draft.editedBodyText ?? draft.aiBodyText ?? "");
   const initialSubject = String(draft.subject ?? "");
@@ -677,6 +679,7 @@ export function InlineDraftEditor({ action, onMutate, onClose, busy }: { action:
       <div className="flex min-w-0 flex-col gap-3">
         {dnc && <Warning tone="danger" title="Sending is blocked" detail="This person is marked as Do Not Contact." />}
         {stale && !dnc && <Warning tone="warning" title="This draft may be out of date" detail="A newer reply changed the conversation. Regenerate, or open the record to review before sending." />}
+        {channel === "email" && <DraftRecipients draft={draft} personEmail={typeof person.email === "string" ? person.email : null} />}
         {channel === "email" && <input aria-label="Subject" className={fieldClass} value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Email subject" disabled={busy} />}
         <textarea
           aria-label="Reply"

@@ -65,6 +65,12 @@ export type CrmSendAdapterInput = {
   providerThreadId: string | null;
   providerContactId: string | null;
   recipientEmail: string | null;
+  /**
+   * Email only: the record's Person when the To is someone else (a new point
+   * of contact, src/lib/crm/draftRecipients.ts) — whose Master Inbox thread
+   * the send is mirrored onto. Absent when the To is the Person.
+   */
+  threadContactEmail?: string | null;
   /** The Person's phone (people.phone, E.164) — WhatsApp's recipient when the conversation has no chat yet. */
   recipientPhone?: string | null;
   subject: string | null;
@@ -324,8 +330,19 @@ async function prepareSend(tx: CrmTransaction, input: {
   if (draft.channel !== "email" && requestedExtras > 0) {
     throw new CrmConfigurationValidationError("cc and bcc are only supported on email conversations");
   }
+  // The draft's own To/Cc (a hand-off to a new point of contact) plus any
+  // Cc/Bcc the sender added.
+  const recipientEmail = draft.channel === "email" && draft.toEmail ? draft.toEmail : person.email;
+  const redirected = Boolean(recipientEmail && person.email && recipientEmail.toLowerCase() !== person.email.toLowerCase());
+  if (redirected && recipientEmail) {
+    if (await isSuppressed(recipientEmail)) throw new CrmConflictError(`${recipientEmail} is on the suppression list`);
+    if (await isEmailDoNotContact(tx, recipientEmail)) throw new CrmConflictError(`${recipientEmail} is marked Do Not Contact`);
+  }
   const extras = draft.channel === "email"
-    ? resolveExtraRecipients(input, { recipient: person.email, mailbox: conversation.accountRef })
+    ? resolveExtraRecipients(
+        { ccEmails: [...(draft.ccEmails ?? []), ...(input.ccEmails ?? [])], bccEmails: input.bccEmails },
+        { recipient: recipientEmail, mailbox: conversation.accountRef },
+      )
     : { cc: [], bcc: [] };
   for (const address of [...extras.cc, ...extras.bcc]) {
     if (await isSuppressed(address)) throw new CrmConflictError(`${address} is on the suppression list; remove it from Cc/Bcc to send`);
@@ -346,7 +363,8 @@ async function prepareSend(tx: CrmTransaction, input: {
     accountRef: conversation.accountRef,
     providerThreadId: conversation.providerThreadId,
     providerContactId: conversation.providerContactId,
-    recipientEmail: person.email,
+    recipientEmail,
+    ...(redirected ? { threadContactEmail: person.email } : {}),
     recipientPhone: draft.channel === "whatsapp" ? person.phone : null,
     subject: draft.subject,
     bodyText,
@@ -492,9 +510,10 @@ async function finishSuccessfulSend(
     // otherwise be missing from the thread the operator replied from. Mirror
     // it onto the contact keyed by the recipient's address; the key matches
     // the CRM message's, so a retried completion cannot write it twice.
-    if (conversation.channel === "email" && prepared.request.recipientEmail) {
+    const threadContactEmail = prepared.request.threadContactEmail ?? prepared.request.recipientEmail;
+    if (conversation.channel === "email" && threadContactEmail && prepared.request.recipientEmail) {
       const [contact] = await tx.select({ id: inboxContacts.id }).from(inboxContacts)
-        .where(and(inOrg(inboxContacts), sql`lower(${inboxContacts.email}) = lower(${prepared.request.recipientEmail})`)).limit(1);
+        .where(and(inOrg(inboxContacts), sql`lower(${inboxContacts.email}) = lower(${threadContactEmail})`)).limit(1);
       if (contact) {
         await tx.insert(inboxMessages).values({
           contactId: contact.id,

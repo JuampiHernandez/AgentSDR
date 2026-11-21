@@ -159,6 +159,15 @@ describe("CRM draft output validation", () => {
     assert.throws(() => validateDraftOutput({ subject: "Hello", bodyText: " ", bodyHtml: null }, "email"), /bodyText is required/);
   });
 
+  test("an Email draft may name a new contact; absent means null; other channels may not", () => {
+    assert.equal(validateDraftOutput({ subject: "Hi", bodyText: "Body", bodyHtml: null, addressTo: " jane@acme.com " }, "email").addressTo, "jane@acme.com");
+    assert.equal(validateDraftOutput({ subject: "Hi", bodyText: "Body", bodyHtml: null }, "email").addressTo, null);
+    assert.throws(() => validateDraftOutput({ subject: "Hi", bodyText: "Body", bodyHtml: null, addressTo: 3 }, "email"), /addressTo must be a string or null/);
+    assert.throws(() => validateDraftOutput({ subject: null, bodyText: "Hi", bodyHtml: null, addressTo: "jane@acme.com" }, "whatsapp"), /addressTo must be null or absent/);
+    const schema = draftJsonSchema("email") as { required: string[] };
+    assert.ok(schema.required.includes("addressTo"));
+  });
+
   test("requires a null or absent LinkedIn subject and plain-text-only body", () => {
     assert.throws(() => validateDraftOutput({ subject: "No", bodyText: "Hello", bodyHtml: null }, "linkedin"), /subject must be null or absent/);
     assert.throws(() => validateDraftOutput({ subject: null, bodyText: "Hello", bodyHtml: "<p>Hello</p>" }, "linkedin"), /bodyHtml must be null/);

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { draftRecipientView } from "@/lib/crm/draftRecipients";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { McpServer, ServerContext } from "@modelcontextprotocol/server";
@@ -432,6 +433,8 @@ function registerAllCrmTools(server: McpServer) {
                 channel: draft.channel,
                 conversationId: draft.conversationId,
                 sendsFrom: conversationNames.get(draft.conversationId) ?? null,
+                // Who it goes to: the person, or a new contact the thread handed us to with the person copied.
+                ...(draft.channel === "email" ? (({ to, cc }) => ({ to, cc }))(draftRecipientView(draft, person.email ?? null)) : {}),
                 step: draftStep ? { name: draftStep.name, type: draftStep.stepType, position: draftStep.position } : null,
                 subject: draft.subject ?? null,
                 body: draftBody(draft),

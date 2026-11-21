@@ -29,6 +29,7 @@ import {
   RiTimerLine,
   RiUserLine,
 } from "@remixicon/react";
+import { DraftRecipients } from "./DraftRecipients";
 import * as Badge from "@/components/alignui/badge";
 import * as Button from "@/components/alignui/button";
 import * as Dropdown from "@/components/alignui/dropdown";
@@ -254,6 +255,7 @@ export default function CrmRecordClient({ recordId, variant = "page" }: { record
         <div className="min-w-0 xl:min-h-0">
           <ReplyComposer
             record={data}
+            personEmail={text(person.email) || null}
             draft={draft}
             conversations={conversations}
             citations={citations}
@@ -573,8 +575,10 @@ function ConversationPanel({ conversations, messages, name, avatarUrl }: { conve
   );
 }
 
-function ReplyComposer({ record, draft, conversations, citations, uncertainAttempt, lastMessage, onAction, stage, activity, stageNotice }: {
+function ReplyComposer({ record, personEmail, draft, conversations, citations, uncertainAttempt, lastMessage, onAction, stage, activity, stageNotice }: {
   record: Data;
+  /** The To of a reply that is not handed to a new contact. */
+  personEmail: string | null;
   /** Their newest message, quoted above the reply when the thread is not beside it. */
   lastMessage?: Data;
   /** The stage picker: where this lead is, and fixing a misread. */
@@ -668,6 +672,7 @@ function ReplyComposer({ record, draft, conversations, citations, uncertainAttem
 
         {!editingCurrentDraft && Boolean(draft.id) && <div className="rounded-lg bg-information-lighter p-3 text-paragraph-xs text-information-dark ring-1 ring-inset ring-information-light">You switched channels. This will create a separate {channelLabel(channel)} draft; the existing {channelLabel(draft.channel)} draft is preserved.</div>}
 
+        {channel === "email" && <DraftRecipients draft={editingCurrentDraft ? draft : {}} personEmail={personEmail} />}
         {channel === "email" && <label className="block"><span className="mb-1.5 block text-label-xs text-text-sub-600">Subject</span><input className={fieldClass} value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Email subject" /></label>}
         <div className="flex min-h-40 flex-1 flex-col">
           <div className="mb-1.5 flex items-center justify-between gap-2">

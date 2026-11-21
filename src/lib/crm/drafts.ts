@@ -1,5 +1,6 @@
 import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { messageParticipants } from "./participants";
+import { PERSON_RECIPIENTS, resolveDraftRecipients, type DraftRecipients } from "./draftRecipients";
 import { formatAiInstructions } from "./ai/instructions";
 import { db } from "@/lib/db";
 import { companies, people } from "@/lib/leads/schema";
@@ -354,11 +355,26 @@ async function finishGeneratedDraft(
     }
     assertCurrentCrmContext(record, { contextVersion: draft.expectedContextVersion });
 
+    let recipients: DraftRecipients = PERSON_RECIPIENTS;
+    if (draft.channel === "email") {
+      const [conversation] = await tx.select({ accountRef: crmConversations.accountRef }).from(crmConversations)
+        .where(and(inOrg(crmConversations), eq(crmConversations.id, draft.conversationId))).limit(1);
+      recipients = resolveDraftRecipients({
+        addressTo: generated.addressTo,
+        personEmail: prepared.promptInput.person.email ?? null,
+        mailbox: conversation?.accountRef ?? null,
+        stepType: prepared.promptInput.sequenceStep.stepType,
+        conversation: prepared.promptInput.recentConversation,
+      });
+    }
+
     const now = new Date();
     const [updated] = await tx.update(crmDrafts).set({
       subject: generated.subject,
       aiBodyText: generated.bodyText,
       aiBodyHtml: generated.bodyHtml,
+      toEmail: recipients.toEmail,
+      ccEmails: recipients.ccEmails,
       editedBodyText: null,
       editedBodyHtml: null,
       status: "awaiting_review",
