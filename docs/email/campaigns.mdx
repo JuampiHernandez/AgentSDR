@@ -56,17 +56,28 @@ Leave a follow-up's **Subject** blank ("Leave blank to continue the same thread"
 
 ### Merge fields
 
-Click **Insert field** above the body to pick from a searchable list of fields. The list comes from the campaign's own leads, so every column of an uploaded file appears. Fields look like `{{firstName}}`.
+Click **Insert field** above the body to pick from a searchable list of fields. Fields look like `{{firstName}}`.
 
-Always available are `{{firstName}}`, `{{lastName}}` and `{{company}}`. Other things you can use include `{{email}}`, `{{title}}` and `{{companyDomain}}`, plus any extra column from your import. A column the importer does not recognise is turned into a camelCase key, so "Job Title" becomes `{{jobTitle}}`. Matching ignores upper and lower case.
+The list always starts with the standard fields: **First name**, **Last name**, **Full name**, **Company**, **Job title**, **Email** and **Company domain**, even if none of the campaign's leads has them yet. After them comes every other column of the campaign's leads, so every column of an uploaded file appears. A column the importer does not recognise is turned into a camelCase key, so "Product Name" becomes `{{productName}}`. Matching ignores upper and lower case.
+
+Under each field the list shows how many leads are missing it, for example "Missing for 3 of 10".
+
+#### Fallback text
+
+Not every lead has every value. Write a field as `{{firstName|there}}` and a lead with no first name gets "there" instead:
+
+- A lead named Asha: "Hi Asha,"
+- A lead with no first name: "Hi there,"
+
+When you choose a field from **Insert field**, a second step asks for **Fallback if missing (optional)** and inserts the field with it. First name suggests "there". Leave it empty to insert the field without a fallback. You can also type or edit the fallback in the text yourself; it cannot contain `{`, `}` or a line break.
 
 <Warning>
-A merge field with no value does not fail and is not left as text. It is replaced with an empty string, exactly like a lead with no first name. A missing value can leave "Hi ," in the email, so use **Preview** on several leads before you launch.
+A merge field with no value and no fallback does not fail and is not left as text. It is replaced with an empty string, which can leave "Hi ," in the email. **Preview** lists the fields that are empty for the chosen lead, and the ones that use their fallback, so check several leads before you launch.
 </Warning>
 
 ### Variants and signature
 
-- `{A|B|C}` picks one option at random for each email, so emails to different leads are not identical.
+- `{A|B|C}` picks one option at random for each email, so emails to different leads are not identical. A merge field's fallback, such as `{{firstName|there}}`, is not a variant: it is never picked at random.
 - Click **Signature** to insert `%signature%`, which is replaced with the sending mailbox's [signature](/email/connect). With no placeholder, the signature is appended.
 
 Every email also gets an unsubscribe link at the bottom, which you do not need to add yourself.

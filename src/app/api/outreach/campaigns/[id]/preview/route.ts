@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { companies, people } from "@/lib/leads/schema";
 import { personVariables } from "@/lib/leads/variables";
 import { outreachLeads, mailboxes } from "@/lib/outreach/schema";
-import { renderEmail } from "@/lib/outreach/render";
+import { mergeTokens, renderEmail } from "@/lib/outreach/render";
 import { inOrg } from "@/lib/tenancy/scope";
 import { leadsInOrg } from "@/lib/outreach/orgScope";
 import { withOrgContext, authContextErrorResponse } from "@/lib/auth/context";
@@ -56,18 +56,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const variables = personVariables(row.person, row.company);
       const rendered = renderEmail(step, { email: row.person.email, variables }, mailbox?.signatureHtml ?? null);
 
-      // Report which {{tokens}} the template used but this lead can't fill, so an
-      // empty subject line is caught here rather than after the send.
-      const used = new Set<string>();
-      for (const m of `${step.subject} ${step.body}`.matchAll(/\{\{\s*([^{}\r\n]+?)\s*\}\}/g)) used.add(m[1].trim());
-      const available = new Map(Object.entries(variables).map(([key, value]) => [key.toLowerCase(), value]));
-      const unresolved = [...used].filter((t) => t.toLowerCase() !== "signature" && !available.has(t.toLowerCase()));
+      // Report which {{tokens}} this lead can't fill, so an empty subject line
+      // is caught here rather than after the send: blank ones (no fallback)
+      // and ones that use their fallback text.
+      const filled = new Set(
+        Object.entries(variables).filter(([, value]) => value.trim()).map(([key]) => key.toLowerCase()),
+      );
+      const unresolved = new Set<string>();
+      const usedFallback = new Set<string>();
+      for (const { key, fallback } of mergeTokens(`${step.subject} ${step.body}`)) {
+        if (key.toLowerCase() === "signature" || filled.has(key.toLowerCase())) continue;
+        (fallback ? usedFallback : unresolved).add(key);
+      }
 
       return NextResponse.json({
         subject: rendered.subject,
         body: rendered.body,
         html: rendered.html,
-        unresolved,
+        unresolved: [...unresolved],
+        usedFallback: [...usedFallback],
         lead: { id: row.lead.id, email: row.person.email, variables },
         mailbox: mailbox
           ? { id: mailbox.id, emailAddress: mailbox.emailAddress, displayName: mailbox.displayName, hasSignature: Boolean(mailbox.signatureHtml) }

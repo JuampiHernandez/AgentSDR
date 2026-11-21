@@ -11,6 +11,15 @@ Each release lists the database migrations it needs; see
 
 ### Added
 
+- **Merge field fallbacks, 2026-11-21.** `{{firstName|there}}` sends
+  "there" to a lead with no first name instead of an empty string. Choosing a
+  field from **Insert field** asks for optional fallback text, and the list
+  now always offers the standard fields (first name, last name, full name,
+  company, job title, email, company domain) even when no lead has them yet,
+  each marked with how many leads are missing it. The preview says when a
+  lead gets the fallback. A merge field is never read as `{A|B}` spin text.
+  No migration.
+
 - **AI assistants (MCP), 2026-11-13.** AgentSDR is an MCP server at
   `/api/mcp`. Connect Claude (web and desktop), Claude Code, Cursor or any
   MCP client and work **CRM, Action required** from a chat: read the queue and
