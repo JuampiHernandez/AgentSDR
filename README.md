@@ -26,6 +26,7 @@
   <a href="https://github.com/Kandid-ai/AgentSDR/discussions"><img src="https://img.shields.io/github/discussions/Kandid-ai/AgentSDR?label=discussions" alt="GitHub Discussions"></a>
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16">
   <img src="https://img.shields.io/badge/PostgreSQL-16%2B-336791?logo=postgresql&logoColor=white" alt="PostgreSQL 16+">
+  <a href="https://www.opensourcealternatives.to"><img src="https://www.opensourcealternatives.to/badge-osa.svg" alt="As seen on Open Source Alternatives" height="20"></a>
 </p>
 
 </div>
