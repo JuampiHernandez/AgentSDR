@@ -334,6 +334,16 @@ export async function runLink(job: LinkJob): Promise<void> {
   const { station } = job;
   const tag = `link @ ${station.name}`;
   let browser: StationBrowser | null = null;
+  // Closing the browser saves the profile with the new login. Reporting the
+  // number linked lets AgentSDR lease it again, and the open-numbers loop
+  // then opens the profile at once: reported before the save, it opened the
+  // old, logged-out copy, saw the login screen, and saved that over the new
+  // login (21 Nov 2026). So the browser is closed first, then the state sent.
+  const closeBrowser = async () => {
+    const b = browser;
+    browser = null;
+    if (b) await b.close().catch((e) => log(`${tag}: close failed: ${message(e)}`));
+  };
   try {
     log(`${tag}: opening browser (${station.launcher})`);
     browser = await openStationBrowser(station, { fresh: job.fresh });
@@ -342,6 +352,7 @@ export async function runLink(job: LinkJob): Promise<void> {
     if (state === "ready") {
       const linkedPhone = await loggedInPhone(page);
       log(`${tag}: already linked${linkedPhone ? ` as ${linkedPhone}` : ""}`);
+      await closeBrowser();
       await safeState(station.id, { status: "active", linkDone: true, link: null, error: null, ...(linkedPhone ? { linkedPhone } : {}) });
       return;
     }
@@ -379,11 +390,14 @@ export async function runLink(job: LinkJob): Promise<void> {
         await sleep(15_000);
         const linkedPhone = await loggedInPhone(page);
         log(`${tag}: logged in as ${linkedPhone ?? "an unknown account"}`);
+        await closeBrowser();
+        log(`${tag}: profile saved`);
         await safeState(station.id, { status: "active", link: null, linkDone: true, error: null, ...(linkedPhone ? { linkedPhone } : {}) });
         return;
       }
     }
     log(`${tag}: gave up${syncing ? " (linked, but the chats never finished loading)" : ""}`);
+    await closeBrowser();
     await safeState(station.id, {
       linkDone: true,
       link: null,
@@ -391,9 +405,10 @@ export async function runLink(job: LinkJob): Promise<void> {
     });
   } catch (e) {
     log(`${tag}: error: ${e instanceof Error ? e.message : String(e)}`);
+    await closeBrowser();
     await safeState(station.id, { linkDone: true, link: null, error: `Linking failed: ${message(e)}` });
   } finally {
-    if (browser) await browser.close().catch((e) => log(`${tag}: close failed: ${message(e)}`));
+    await closeBrowser();
   }
 }
 

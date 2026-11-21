@@ -61,6 +61,14 @@ export const RECYCLE_MS = 4 * 60 * 60 * 1000;
 const MAX_RETRY_MS = 10 * 60 * 1000;
 /** How long a call, a link or a close waits for a message already on the number (a send times out at 45 s). */
 export const MESSAGE_WAIT_MS = 50_000;
+/**
+ * How long a call waits for the number's browser to finish closing (saving
+ * its profile) or opening before it gives up on the open number. A call that
+ * did not wait opened a second browser on the same profile while the first
+ * was still saving: two WhatsApp Webs with one login, which WhatsApp logged
+ * out, and the stale copy saved last (21 Nov 2026).
+ */
+export const BROWSER_WAIT_MS = 4 * 60_000;
 
 const waitAtMost = (p: Promise<unknown>, ms: number) =>
   new Promise<boolean>((resolve) => {
@@ -76,6 +84,8 @@ export class OpenStations {
   private openQueue: Promise<void> = Promise.resolve();
   /** Closes in progress (each saves a profile, ~10 s): shutdown waits for them. */
   private readonly closing = new Set<Promise<void>>();
+  /** The close in progress per number, so a call waits for it instead of opening the profile beside it. */
+  private readonly closingFor = new Map<string, Promise<void>>();
   private ticking = false;
   private stopped = false;
 
@@ -175,10 +185,19 @@ export class OpenStations {
    * marked in a call, so it is not reopened under it, and no new message
    * takes it. A message already on it is waited for first (bounded). Pair with done().
    */
-  async acquire(stationId: string, timeoutMs = 90_000): Promise<ReadyWhatsApp | null> {
-    const slot = this.slots.get(stationId);
+  async acquire(stationId: string, timeoutMs = BROWSER_WAIT_MS): Promise<ReadyWhatsApp | null> {
+    let slot = this.slots.get(stationId);
+    if (slot) slot.inCall = true;
+    // Closing (a reopen, or let go): wait until its profile is saved. A reopen
+    // then puts a new slot in place, which keeps the inCall flag.
+    const closing = this.closingFor.get(stationId);
+    if (closing) {
+      this.deps.log(`open numbers: call on ${stationId} waits for its browser to finish closing`);
+      await waitAtMost(closing, timeoutMs);
+      slot = this.slots.get(stationId);
+      if (slot) slot.inCall = true;
+    }
     if (!slot) return null;
-    slot.inCall = true;
     if (slot.message) {
       this.deps.log(`open numbers: call on ${slot.station.name} waits for a message in progress`);
       if (!(await waitAtMost(slot.message.done, this.messageWaitMs))) {
@@ -236,7 +255,7 @@ export class OpenStations {
       this.deps.log(`open numbers: opening ${station.name}`);
       const result = await this.deps.open(station).catch((error: unknown) => ({ error: error instanceof Error ? error.message : String(error) }));
       if (this.slots.get(station.id) !== slot || this.stopped) {
-        if (!("error" in result)) await this.deps.close(result, station).catch(() => {});
+        if (!("error" in result)) await this.track(this.deps.close(result, station), station.id);
         return;
       }
       if ("error" in result) {
@@ -258,7 +277,7 @@ export class OpenStations {
   private async reopen(slot: Slot, why: string): Promise<void> {
     this.deps.log(`open numbers: reopening ${slot.station.name} — ${why}`);
     slot.state = "closing";
-    if (slot.ready) await this.track(this.deps.close(slot.ready, slot.station));
+    if (slot.ready) await this.track(this.deps.close(slot.ready, slot.station), slot.station.id);
     slot.ready = null;
     this.startOpening(slot.station);
   }
@@ -272,13 +291,17 @@ export class OpenStations {
       this.deps.log(`open numbers: the message on ${slot.station.name} did not finish in ${Math.round(this.messageWaitMs / 1000)} s; closing anyway`);
     }
     if (slot.state === "opening" && slot.opening) await slot.opening.catch(() => {});
-    if (slot.ready) await this.track(this.deps.close(slot.ready, slot.station));
+    if (slot.ready) await this.track(this.deps.close(slot.ready, slot.station), stationId);
   }
 
-  private track(close: Promise<void>): Promise<void> {
+  private track(close: Promise<void>, stationId: string): Promise<void> {
     const settled = close.catch(() => {});
     this.closing.add(settled);
-    void settled.then(() => this.closing.delete(settled));
+    this.closingFor.set(stationId, settled);
+    void settled.then(() => {
+      this.closing.delete(settled);
+      if (this.closingFor.get(stationId) === settled) this.closingFor.delete(stationId);
+    });
     return settled;
   }
 }

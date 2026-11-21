@@ -8,7 +8,7 @@ const station = (id: string): WorkerStation =>
 const ready = (id: string) => ({ browser: { id }, page: { id } }) as unknown as ReadyWhatsApp;
 
 /** A fake AgentSDR and fake browsers, recording what the manager did. */
-function harness(options: { openFails?: number; messageWaitMs?: number } = {}) {
+function harness(options: { openFails?: number; messageWaitMs?: number; closeGate?: Promise<void> } = {}) {
   let now = 1_000;
   let failsLeft = options.openFails ?? 0;
   const events: string[] = [];
@@ -30,7 +30,13 @@ function harness(options: { openFails?: number; messageWaitMs?: number } = {}) {
       }
       return ready(s.id);
     },
-    close: async (_r, s) => void events.push(`close ${s.id}`),
+    close: async (_r, s) => {
+      events.push(`close ${s.id}`);
+      if (options.closeGate) {
+        await options.closeGate;
+        events.push(`closed ${s.id}`);
+      }
+    },
     health: async (_r, s) => health.get(s.id) ?? "ok",
     log: () => {},
     now: () => now,
@@ -243,5 +249,45 @@ describe("OpenStations", () => {
     await hold.done();
     await closing;
     expect(h.events).toEqual(["open a", "close a"]);
+  });
+
+  test("a call waits for the number's browser to finish closing before it opens its own (no second browser on one profile)", async () => {
+    let open = () => {};
+    const h = harness({ closeGate: new Promise<void>((resolve) => (open = resolve)) });
+    h.grant("a");
+    await h.tick();
+    h.release("a");
+    const ticking = h.tick();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    let got: unknown = "pending";
+    const call = h.manager.acquire("a").then((r) => (got = r));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(got).toBe("pending");
+    open();
+    await Promise.all([ticking, call]);
+    expect(got).toBeNull();
+    expect(h.events).toEqual(["open a", "close a", "closed a"]);
+  });
+
+  test("a call during a reopen waits for the close and the new opening, and gets the reopened number", async () => {
+    let open = () => {};
+    const h = harness({ closeGate: new Promise<void>((resolve) => (open = resolve)) });
+    h.grant("a");
+    await h.tick();
+    h.health.set("a", "gone");
+    const ticking = h.tick();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    let got: unknown = "pending";
+    const call = h.manager.acquire("a").then((r) => (got = r));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(got).toBe("pending");
+    open();
+    await Promise.all([ticking, call]);
+    expect(got).toEqual(ready("a"));
+    expect(h.events).toEqual(["open a", "close a", "closed a", "open a"]);
+    // In the call: the next tick leaves it alone.
+    h.health.set("a", "ok");
+    await h.tick();
+    expect(h.events).toHaveLength(4);
   });
 });
