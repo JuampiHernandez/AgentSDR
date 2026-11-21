@@ -323,7 +323,7 @@ function BoardColumn({ stage, page, columns, count, categories, filtered, onRese
             now={now}
             busy={busyIds.has(id)}
             onOpen={() => router.push(`/crm/records/${id}`)}
-            onMutate={(path, body, method, success) => mutateRow(id, path, body, method, success)}
+            onMutate={(path, body, method, success, onError) => mutateRow(id, path, body, method, success, onError)}
             onClassify={(choice) => classify(action, choice)}
             pipeline
           />;

@@ -371,7 +371,8 @@ export function HoverPreview({ title, body, meta, children, className, onActivat
 export const HoverPreviewProvider = ({ children }: { children: React.ReactNode }) => <Tooltip.Provider delayDuration={350} skipDelayDuration={400}>{children}</Tooltip.Provider>;
 
 /** Where a row's draft edits and sends go. `path` is relative to `/api/crm`. */
-export type RowMutation = (path: string, body: Data, method: string, success: string) => Promise<boolean>;
+/** `onError`, when given, receives a failure's message instead of the page's notice bar, so a dialog can show it itself. */
+export type RowMutation = (path: string, body: Data, method: string, success: string, onError?: (message: string) => void) => Promise<boolean>;
 
 /** "Thu 20 Nov, 10:00–10:30" in the reader's local time (end shown with its date only when it falls on another day). */
 export function formatMeetingRange(startAt: unknown, endAt: unknown): string {
@@ -548,8 +549,12 @@ export function DiscardLeadDialog({ open, onOpenChange, onConfirm, name }: {
 export function FollowUpDialog({ open, onOpenChange, onSubmit }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Resolves true when the follow-up was set; the dialog closes itself then. */
-  onSubmit: (at: Date, note: string) => Promise<boolean>;
+  /**
+   * Resolves true when the follow-up was set; the dialog closes itself then.
+   * A refusal goes to `onError`, and the dialog stays open showing it — the
+   * page's own notice sits behind the dialog's overlay.
+   */
+  onSubmit: (at: Date, note: string, onError: (message: string) => void) => Promise<boolean>;
 }) {
   const [at, setAt] = useState<Date>(() => followUpDueIn(7));
   const [working, setWorking] = useState(false);
@@ -557,7 +562,8 @@ export function FollowUpDialog({ open, onOpenChange, onSubmit }: {
   // The days box keeps its own text, so it can be emptied while typing "45"
   // instead of snapping back to the old number.
   const [daysText, setDaysText] = useState("7");
-  useEffect(() => { if (open) { setAt(followUpDueIn(7)); setDaysText("7"); setNote(""); setWorking(false); } }, [open]);
+  const [failure, setFailure] = useState<string | null>(null);
+  useEffect(() => { if (open) { setAt(followUpDueIn(7)); setDaysText("7"); setNote(""); setWorking(false); setFailure(null); } }, [open]);
   const error = followUpDateError(at);
   const noteError = followUpNoteError(note);
   const days = daysBetween(at);
@@ -570,7 +576,8 @@ export function FollowUpDialog({ open, onOpenChange, onSubmit }: {
   const submit = async () => {
     if (error || noteError || working) return;
     setWorking(true);
-    const ok = await onSubmit(at, note.trim());
+    setFailure(null);
+    const ok = await onSubmit(at, note.trim(), setFailure);
     setWorking(false);
     if (ok) onOpenChange(false);
   };
@@ -607,6 +614,7 @@ export function FollowUpDialog({ open, onOpenChange, onSubmit }: {
             <textarea value={note} maxLength={FOLLOW_UP_NOTE_MAX} disabled={working} onChange={(event) => setNote(event.target.value)} placeholder="Said to reconnect after their Q1 budget is set. Send the pricing deck and ask for a call." className={cn(fieldClass, "min-h-24 resize-y leading-6")} />
             <span className="block text-paragraph-xs text-text-soft-400">The team sees this on the record, and the AI drafts the follow-up from it that day.</span>
           </label>
+          {failure && <p role="alert" className="rounded-lg bg-error-lighter px-3 py-2 text-paragraph-sm text-error-dark">{failure}</p>}
         </Modal.Body>
         <Modal.Footer>
           <Modal.Close asChild><button type="button" className={secondaryButtonClass} disabled={working}>Cancel</button></Modal.Close>

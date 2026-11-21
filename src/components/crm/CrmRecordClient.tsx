@@ -61,6 +61,9 @@ import { announceRecordChanged } from "./recordEvents";
 import { setUnsavedReply } from "./recordQueue";
 import { ChannelAvatar } from "./CrmActionsClient";
 
+/** A record action: resolves false when it failed. `onError` takes the failure's message instead of the page, for a dialog that shows it itself. */
+type RecordAction = (path: string, body?: Data, method?: string, success?: string, onError?: (message: string) => void) => Promise<boolean>;
+
 type Data = Record<string, unknown>;
 type Channel = "email" | "linkedin" | "whatsapp";
 type TimelineFilter = "all" | Channel;
@@ -161,7 +164,8 @@ export default function CrmRecordClient({ recordId, variant = "page" }: { record
 
   useEffect(() => { void load(); }, [load]);
 
-  const mutate = async (path: string, body: Data = {}, method = "POST", success = "Changes saved") => {
+  /** `onError`, when given, takes a failure's message instead of the page (a dialog showing it itself). */
+  const mutate = async (path: string, body: Data = {}, method = "POST", success = "Changes saved", onError?: (message: string) => void): Promise<boolean> => {
     setNotice("");
     setError("");
     try {
@@ -170,7 +174,12 @@ export default function CrmRecordClient({ recordId, variant = "page" }: { record
       // A list under the pop-up holding this record re-reads its row.
       announceRecordChanged(recordId);
       await load();
-    } catch (cause) { setError(errorMessage(cause)); }
+      return true;
+    } catch (cause) {
+      if (onError) onError(errorMessage(cause));
+      else setError(errorMessage(cause));
+      return false;
+    }
   };
 
   // Only the first load blanks the page; a reload after an action keeps the
@@ -281,7 +290,7 @@ function MeetingsCard({ meetings, linkSentCount, linkFirstSentAt, onAction, reco
   meetings: Data[];
   linkSentCount: number;
   linkFirstSentAt: unknown;
-  onAction: (path: string, body?: Data, method?: string, success?: string) => Promise<void>;
+  onAction: RecordAction;
   recordId: string;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -384,7 +393,7 @@ function RecordHeader({ back, data, person, name, avatarUrl, currentStep, active
   avatarUrl: string | null;
   currentStep: Data;
   activeRun: Data;
-  onAction: (path: string, body?: Data, method?: string, success?: string) => Promise<void>;
+  onAction: RecordAction;
   /** Bumps the Calls card's refreshKey once the extension accepts a call. */
   onCallStarted: () => void;
 }) {
@@ -436,7 +445,7 @@ function RecordHeader({ back, data, person, name, avatarUrl, currentStep, active
           onClick={() => void onAction(`/records/${id}/skip`, {}, "POST", "Step skipped — the next one is scheduled")}
         aria-label="Skip step"><Button.Icon as={RiSkipForwardLine} /><span className="hidden sm:inline">Skip step</span></Button.Root>}
         <DiscardLeadDialog open={discardOpen} onOpenChange={setDiscardOpen} name={name} onConfirm={async () => { await onAction(`/records/${id}/close`, { reason: DISCARD_LEAD_REASON }, "POST", DISCARD_LEAD_SUCCESS); return true; }} />
-        <FollowUpDialog open={followUpOpen} onOpenChange={setFollowUpOpen} onSubmit={async (at, note) => { await onAction(`/records/${id}/follow-up`, { at: at.toISOString(), note }, "POST", followUpSuccessMessage(at)); return true; }} />
+        <FollowUpDialog open={followUpOpen} onOpenChange={setFollowUpOpen} onSubmit={(at, note, onError) => onAction(`/records/${id}/follow-up`, { at: at.toISOString(), note }, "POST", followUpSuccessMessage(at), onError)} />
         <Dropdown.Root>
           <Dropdown.Trigger asChild>
             <Button.Root variant="neutral" mode="stroke" size="xsmall" title="Manage record" aria-label="Manage record"><Button.Icon as={RiMoreLine} /></Button.Root>
@@ -578,7 +587,7 @@ function ReplyComposer({ record, draft, conversations, citations, uncertainAttem
   conversations: Data[];
   citations: Data[];
   uncertainAttempt?: Data;
-  onAction: (path: string, body?: Data, method?: string, success?: string) => Promise<void>;
+  onAction: RecordAction;
 }) {
   const draftConversationId = text(draft.conversationId);
   const defaultConversation = conversations.find((item) => item.id === draftConversationId) ?? conversations.find((item) => item.channel === record.activeChannel) ?? conversations[0];
@@ -764,7 +773,7 @@ function InlineWarning({ tone, title, detail }: { tone: "warning" | "danger"; ti
  * It is also the only way to move a lead's stage: a pick opens the "What
  * next?" confirm step (reply now, or just schedule follow-ups, plus a note).
  */
-function ClassificationSelect({ record, categories, onAction }: { record: Data; categories: Data[]; onAction: (path: string, body?: Data, method?: string, success?: string) => Promise<void> }) {
+function ClassificationSelect({ record, categories, onAction }: { record: Data; categories: Data[]; onAction: RecordAction }) {
   const classification = asObject(record.classification);
   const categoryKey = String(record.categoryKey ?? classification.category ?? "other");
   const subcategoryId = record.subcategoryId ? String(record.subcategoryId) : null;
@@ -800,7 +809,7 @@ function ClassificationSelect({ record, categories, onAction }: { record: Data; 
  * and the record stays where it was. This surfaces that held proposal so a
  * human decides rather than it sitting silent in the classification history.
  */
-function ProposedClassificationNotice({ record, categories, onAction }: { record: Data; categories: Data[]; onAction: (path: string, body?: Data, method?: string, success?: string) => Promise<void> }) {
+function ProposedClassificationNotice({ record, categories, onAction }: { record: Data; categories: Data[]; onAction: RecordAction }) {
   const classification = asObject(record.classification);
   if (classification.status !== "proposed") return null;
   const proposedCategoryKey = classification.proposedCategoryKey ? String(classification.proposedCategoryKey) : null;

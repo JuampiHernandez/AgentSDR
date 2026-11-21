@@ -362,7 +362,7 @@ export function useRowMutations({ onActionsChange, pipeline, onMutated, onRowGon
     return fresh ?? null;
   }, [onActionsChange, pipeline, onRowGone]);
 
-  const mutateRow = useCallback(async (id: string, path: string, body: Data, method: string, success: string) => {
+  const mutateRow = useCallback(async (id: string, path: string, body: Data, method: string, success: string, onError?: (message: string) => void) => {
     setBusyIds((old) => new Set(old).add(id));
     setNotice(null);
     try {
@@ -372,7 +372,8 @@ export function useRowMutations({ onActionsChange, pipeline, onMutated, onRowGon
       onMutated?.();
       return true;
     } catch (cause) {
-      setNotice({ tone: "error", text: errorMessage(cause) });
+      if (onError) onError(errorMessage(cause));
+      else setNotice({ tone: "error", text: errorMessage(cause) });
       return false;
     } finally {
       setBusyIds((old) => { const next = new Set(old); next.delete(id); return next; });
@@ -491,7 +492,7 @@ export function ActionRows({ actions, categories, onActionsChange, pipeline, ref
           busy={busyIds.has(id)}
           pipeline={pipeline}
           onOpen={() => router.push(id ? `/crm/records/${id}` : "/crm/actions")}
-          onMutate={(path, body, method, success) => mutateRow(id, path, body, method, success)}
+          onMutate={(path, body, method, success, onError) => mutateRow(id, path, body, method, success, onError)}
           onClassify={(choice) => classify(action, choice)}
         />;
       })}
@@ -516,8 +517,8 @@ export function ActionRows({ actions, categories, onActionsChange, pipeline, ref
           const id = actionId(action);
           const busy = busyIds.has(id);
           const editing = editingId === id;
-          const onMutate: RowMutation = async (path, body, method, success) => {
-            const ok = await mutateRow(id, path, body, method, success);
+          const onMutate: RowMutation = async (path, body, method, success, onError) => {
+            const ok = await mutateRow(id, path, body, method, success, onError);
             // Send and discard end the edit: the draft they acted on is gone.
             // A regenerate keeps it open so the rewrite is read right there,
             // and a failed call keeps the editor open with the text intact.
@@ -981,7 +982,7 @@ export function RowMenu({ draft, recordId, name, onMutate, label, className }: {
   const [discardOpen, setDiscardOpen] = useState(false);
   return <>
     <DiscardLeadDialog open={discardOpen} onOpenChange={setDiscardOpen} name={name} onConfirm={() => onMutate(`/records/${recordId}/close`, { reason: DISCARD_LEAD_REASON }, "POST", DISCARD_LEAD_SUCCESS)} />
-    <FollowUpDialog open={followUpOpen} onOpenChange={setFollowUpOpen} onSubmit={(at, note) => onMutate(`/records/${recordId}/follow-up`, { at: at.toISOString(), note }, "POST", followUpSuccessMessage(at))} />
+    <FollowUpDialog open={followUpOpen} onOpenChange={setFollowUpOpen} onSubmit={(at, note, onError) => onMutate(`/records/${recordId}/follow-up`, { at: at.toISOString(), note }, "POST", followUpSuccessMessage(at), onError)} />
     {draft && <RegenerateDraftDialog open={regenerateOpen} onOpenChange={setRegenerateOpen} onSubmit={(feedback) => onMutate(`/drafts/${String(draft.id)}/regenerate`, { feedback }, "POST", "Draft rewritten with your notes")} />}
     <Dropdown.Root>
       <Dropdown.Trigger asChild>

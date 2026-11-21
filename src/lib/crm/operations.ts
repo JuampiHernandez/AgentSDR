@@ -453,7 +453,7 @@ export async function scheduleFollowUpOn(input: {
     if (await isPersonDoNotContact(tx, record.personId)) throw new CrmConflictError("This Person is globally marked Do Not Contact");
     const [uncertain] = await tx.select({ id: crmDrafts.id }).from(crmDrafts)
       .where(and(eq(crmDrafts.crmRecordId, record.id), eq(crmDrafts.status, "delivery_uncertain"))).limit(1);
-    if (uncertain) throw new CrmConflictError("A send needs reconciling first");
+    if (uncertain) throw new CrmConflictError("The last message may not have gone out. Open the record, mark that send delivered or not delivered, then set the follow-up.");
     assertWorkflowTransition(record.workflowState, "waiting");
     await interruptActiveSequenceRunInTransaction(tx, {
       recordId: record.id,
