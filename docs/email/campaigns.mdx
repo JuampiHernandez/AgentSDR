@@ -39,7 +39,7 @@ Click **Create campaign**. The wizard has four steps, shown on the left: **Campa
   </Step>
 </Steps>
 
-**Launch campaign** is disabled until there is a connected mailbox, a complete sequence and at least one lead. You can also launch a draft from the campaign page.
+**Launch campaign** is disabled until the campaign has a connected mailbox to send from, a complete sequence and at least one lead. You can also launch a draft from the campaign page.
 
 ## Build the sequence
 
@@ -75,7 +75,7 @@ Every email also gets an unsubscribe link at the bottom, which you do not need t
 
 Sending is deliberately slow and spread out.
 
-- **Mailboxes are one shared pool.** A campaign does not pick mailboxes. Every connected mailbox in your organization can send for any active campaign. New leads are shared across mailboxes in turn, and a lead then stays with the mailbox that sent its first email, so follow-ups come from the same address.
+- **Each campaign sends from its own mailboxes.** By default that is every connected mailbox in your organization; you can narrow it on the campaign's [Mailboxes tab](#choose-the-sending-mailboxes). New leads are shared across the campaign's mailboxes in turn, and a lead then stays with the mailbox that sent its first email, so follow-ups come from the same address.
 - **A queue is built once a day.** Each mailbox's queue for the day is filled first with follow-ups that are due (most overdue first), then with new leads, up to its daily limit. The daily counters also reset at that point.
 - **Then emails go out one at a time.** About once a minute, each mailbox with queued leads sends one email, if it is outside its random gap (18 to 24 minutes by default) and inside its [sending hours](/email/connect).
 - **Limits come from your rules.** Daily limits, gaps and hours are set in [Sending rules](/workspace/sending-rules).
@@ -85,6 +85,28 @@ Because the queue is built once a day, a campaign launched mid-day may not send 
 </Note>
 
 A step is sent at most once per lead. If sending fails, the email is marked **Failed** instead of being retried automatically, and the campaign's analytics show it under **Failed sends** with a hint to check the mailbox.
+
+## Choose the sending mailboxes
+
+Open a campaign and go to the **Mailboxes** tab to see the email accounts it sends from. Use it to keep campaigns apart, for example one campaign from your sales team's mailboxes and another from a second team's.
+
+The table shows, for each mailbox:
+
+- **Sender email**: the display name and address recipients see.
+- **Signature**: **View** opens the mailbox's [signature](/email/connect), **Add** creates one.
+- **Active campaigns**: how many active campaigns use this mailbox. "(shared)" means another campaign sends from it too; hover to see which.
+- **Daily limit**: emails sent today against the mailbox's own limit.
+
+The footer adds up the daily limits, which is the most this campaign can send in a day if no other campaign shares its mailboxes.
+
+- A new campaign uses **all connected mailboxes**, including any you add later.
+- Click **+ Add email accounts** to pick mailboxes. Once you choose, the campaign uses only the chosen ones, and a mailbox added to the organization later is not included.
+- Click **×** on a row to remove a mailbox from this campaign. A campaign must keep at least one, so the last one cannot be removed.
+- Click **Use all mailboxes** to go back to every connected mailbox.
+
+Changes save straight away. They affect new leads from the next daily queue build. A lead that has already been emailed keeps its mailbox, so its follow-ups still go out from the same address even if you remove that mailbox from the campaign. Removing a mailbox from the organization also removes it from every campaign.
+
+When two campaigns share a mailbox, they share its daily limit too. Leads from both are queued in the order they were added.
 
 ## Start, pause and resume
 

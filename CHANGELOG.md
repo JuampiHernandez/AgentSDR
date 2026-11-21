@@ -41,6 +41,12 @@ Each release lists the database migrations it needs; see
   only when the mailbox was connected, and changing the "Emails per day"
   Sending rule does not touch mailboxes connected earlier, so there was no
   way to change either afterwards (`PATCH /api/outreach/mailboxes/:id`).
+- **Choose which mailboxes an email campaign sends from.** A campaign's new
+  **Mailboxes** tab: All mailboxes (as before, the default) or chosen ones,
+  so separate campaigns can run from separate mailboxes. Each mailbox shows
+  the other running campaigns that use it. New leads are only given a chosen
+  mailbox; leads that already started keep theirs, so follow-ups stay in the
+  same thread. Removing a mailbox takes it out of the campaigns that chose it.
 
 ### Migrations
 
@@ -48,6 +54,8 @@ Each release lists the database migrations it needs; see
 - `bun run scripts/create-oauth-provider-tables.ts` creates `jwks` and the
   `oauth_*` tables for AI assistants (MCP).
 - `bun run scripts/add-api-key-scopes.ts` adds `api_keys.scopes`.
+- `bun run scripts/add-campaign-mailboxes.ts` adds
+  `outreach_campaigns.mailbox_ids`.
 
 ## [0.3.1] - 2026-10-08
 

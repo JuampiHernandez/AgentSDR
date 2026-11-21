@@ -2555,7 +2555,8 @@ CREATE TABLE public.outreach_campaigns (
     sequence jsonb DEFAULT '[]'::jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    organization_id uuid NOT NULL
+    organization_id uuid NOT NULL,
+    mailbox_ids uuid[]
 );
 
 --

@@ -14,7 +14,8 @@
  *     (e.g. on its 4th follow-up) is queued ahead of one just starting out.
  *     Matches AgentSDR-app's `ORDER BY lead.nextFollowup, lead.followups DESC`.
  *   Pass B — brand-new (`pending`) leads round-robin fill whatever capacity
- *     is left over, same as AgentSDR-app's PENDING-lead fill pass.
+ *     is left over, same as AgentSDR-app's PENDING-lead fill pass. A campaign
+ *     that names its mailboxes (`mailbox_ids`) only fills those.
  */
 import { and, asc, desc, eq, inArray, isNull, lte, notInArray, or } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -23,6 +24,7 @@ import { isSameLocalDay } from "./workingHours";
 import { isMigrationControlPaused } from "@/lib/migration/controls";
 import { inOrg, runInOrganization } from "@/lib/tenancy/scope";
 import { leadsInOrg, orgMailboxIds } from "./orgScope";
+import { assignNewLeads, spareCapacityFor } from "./campaignMailboxes";
 
 type MailboxCapacity = {
   mailboxId: string;
@@ -135,39 +137,35 @@ async function buildOrganizationQueues(): Promise<BuildQueueResult> {
     followUpsQueued += 1;
   }
 
-  // Pass B: brand-new leads round-robin fill whatever capacity remains.
-  const netCapacity = Array.from(queues.values()).reduce(
-    (sum, cap) => sum + Math.max(0, cap.currentAvailableCapacity - cap.queue.length),
-    0,
-  );
-
-  let newLeadsQueued = 0;
-  if (netCapacity > 0) {
-    const alreadyQueuedLeadIds = Array.from(queues.values()).flatMap((cap) => cap.queue);
-    const newLeads = await db
-      .select()
+  // Pass B: brand-new leads round-robin fill whatever capacity remains, each
+  // only into a mailbox its campaign may use (campaignMailboxes.ts). Loaded
+  // per campaign, up to the spare capacity of that campaign's mailboxes, then
+  // merged oldest first, the order a single query used to give.
+  const slots = Array.from(queues.values());
+  const campaignMailboxIds = new Map(activeCampaigns.map((c) => [c.id, c.mailboxIds ?? null]));
+  const alreadyQueuedLeadIds = slots.flatMap((cap) => cap.queue);
+  const candidates: Array<{ id: string; campaignId: string; createdAt: Date | null }> = [];
+  for (const campaign of activeCampaigns) {
+    const spare = spareCapacityFor(campaign.mailboxIds ?? null, slots);
+    if (spare === 0) continue;
+    const pending = await db
+      .select({ id: outreachLeads.id, campaignId: outreachLeads.campaignId, createdAt: outreachLeads.createdAt })
       .from(outreachLeads)
       .where(
         and(
           leadsInOrg(),
-          inArray(outreachLeads.campaignId, activeCampaignIds),
+          eq(outreachLeads.campaignId, campaign.id),
           eq(outreachLeads.sequenceStatus, "pending"),
           isNull(outreachLeads.mailboxId),
           alreadyQueuedLeadIds.length > 0 ? notInArray(outreachLeads.id, alreadyQueuedLeadIds) : undefined,
         ),
       )
       .orderBy(asc(outreachLeads.createdAt))
-      .limit(netCapacity);
-
-    const cycle = Array.from(queues.values()).filter((cap) => cap.queue.length < cap.currentAvailableCapacity);
-    for (const lead of newLeads) {
-      const cap = cycle.shift();
-      if (!cap) break;
-      cap.queue.push(lead.id);
-      newLeadsQueued += 1;
-      if (cap.queue.length < cap.currentAvailableCapacity) cycle.push(cap);
-    }
+      .limit(spare);
+    candidates.push(...pending);
   }
+  candidates.sort((a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0));
+  const newLeadsQueued = assignNewLeads(candidates, slots, campaignMailboxIds);
 
   const rows: Array<{ mailboxId: string; leadId: string; position: number }> = [];
   for (const cap of queues.values()) {

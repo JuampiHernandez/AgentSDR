@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { mailboxes } from "./schema";
+import { mailboxes, outreachCampaigns } from "./schema";
 import { testMailboxConnection } from "./gmail";
 import { channelRules } from "@/lib/channels/rules.server";
 import { mailboxHoursFromWeekly } from "./workingHours";
@@ -120,5 +120,14 @@ export async function retestMailbox(id: string): Promise<ConnectMailboxResult> {
 }
 
 export async function deleteMailbox(id: string) {
-  await db.delete(mailboxes).where(and(inOrg(mailboxes), eq(mailboxes.id, id)));
+  await db.transaction(async (tx) => {
+    // A campaign that named this mailbox stops naming it. One left with none
+    // sends nothing new until someone chooses again (its page says so); it
+    // never falls back to every mailbox on its own.
+    await tx
+      .update(outreachCampaigns)
+      .set({ mailboxIds: sql`array_remove(${outreachCampaigns.mailboxIds}, ${id}::uuid)`, updatedAt: new Date() })
+      .where(and(inOrg(outreachCampaigns), sql`${id}::uuid = any(${outreachCampaigns.mailboxIds})`));
+    await tx.delete(mailboxes).where(and(inOrg(mailboxes), eq(mailboxes.id, id)));
+  });
 }
