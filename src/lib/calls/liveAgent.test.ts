@@ -125,6 +125,14 @@ describe("agentInstructions context", () => {
     expect(text).not.toContain("never quote a number");
     expect(text.indexOf("This is a phone call, not a text chat")).toBeLessThan(text.indexOf("<brief>"));
   });
+  test("only Gemini hears about call notes; ElevenLabs is told everything it writes is spoken", () => {
+    const gemini = agentInstructions(base, []);
+    expect(gemini).toContain('"[Call note:"');
+    expect(gemini).not.toContain("Everything you write is spoken aloud");
+    const eleven = agentInstructions(base, [], {}, undefined, "elevenlabs");
+    expect(eleven).not.toContain("Call note");
+    expect(eleven).toContain("Everything you write is spoken aloud");
+  });
   test("history is included, with the guidance for who rang whom", () => {
     const text = agentInstructions(base, [], { history: { lines: "- 20 Oct 2026: we called them; they picked up", spokeBefore: true } });
     expect(text).toContain("<history>\n- 20 Oct 2026: we called them; they picked up\n</history>");

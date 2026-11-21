@@ -8,7 +8,7 @@ import { currentOrganizationId } from "@/lib/tenancy/scope";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { inOrg } from "@/lib/tenancy/scope";
-import { AGENT_OUTCOMES, type AgentTokenRequest, type AgentTokenResponse, type ElevenLabsCallSession } from "../contract";
+import { AGENT_OUTCOMES, DEFAULT_AGENT_NAME, type AgentTokenRequest, type AgentTokenResponse, type ElevenLabsCallSession } from "../contract";
 import { loadAgentContext, loadCampaignKnowledgeIds } from "../agentContext";
 import { agentInstructions, agentKnowledge, callNotes, resolveLiveSetupTemplates, saveHeardAudio } from "../liveAgent";
 import { callCampaignContacts, callCampaigns, type callSessions } from "../schema";
@@ -287,8 +287,10 @@ export async function callVoiceEngine(campaignContactId: string | null): Promise
  * The agent session of a real call whose campaign talks through ElevenLabs:
  * the same system prompt mintAgentToken builds for Gemini (the campaign's
  * knowledge, the lead's history, the time, the calling instructions), in
- * ElevenLabs' realtime mode. On a call-back the agent says nothing first and
- * answers the caller's hello, as the calling instructions describe.
+ * ElevenLabs' realtime mode. On a call-back the agent answers first, as a
+ * person picking up would: with no opening line it said nothing, the caller
+ * waited for it, and it asked "Hello? Are you still there?" 10 s in
+ * (Hemang, 19 Nov 2026).
  */
 export async function mintElevenLabsCallToken(
   row: typeof callSessions.$inferSelect,
@@ -297,16 +299,21 @@ export async function mintElevenLabsCallToken(
 ): Promise<AgentTokenResponse> {
   if (row.remoteRep) throw new CallApiError(409, "A rep talks on this call, not the AI agent");
   if (row.status !== "pending" && row.status !== "in_progress") throw new CallApiError(409, "This call is already over");
+  const inbound = row.direction === "inbound";
   const [knowledge, context, live, notes, firstMessage] = await Promise.all([
     loadCampaignKnowledgeIds(row.campaignContactId).then((ids) => agentKnowledge(ids)),
     loadAgentContext(row),
     resolveLiveSetupTemplates(),
     callNotes(),
-    getPromptTemplate("calls/elevenlabs-first-message"),
+    getPromptTemplate(inbound ? "calls/elevenlabs-callback-first-message" : "calls/elevenlabs-first-message"),
   ]);
-  const system = agentInstructions(request, knowledge, context, live.templates["calls/agent-system"]);
+  const system = agentInstructions(request, knowledge, context, live.templates["calls/agent-system"], "elevenlabs");
   const firstName = request.lead?.firstName?.trim() ?? "";
-  const opening = row.direction === "inbound" || !firstName ? "" : fillPrompt(firstMessage.text, { first_name: firstName });
+  const opening = inbound
+    ? fillPrompt(firstMessage.text, { first_name: firstName || null, agent_name: request.name ?? DEFAULT_AGENT_NAME })
+    : firstName
+      ? fillPrompt(firstMessage.text, { first_name: firstName })
+      : "";
   const { voice: voiceId, stillPreparing } = voiceForCall(voice);
   const session = await traceGeneration(
     {
@@ -336,7 +343,7 @@ export async function elevenLabsRehearsalSession(rehearsal: Rehearsal, mode: Ele
   if (!ELEVENLABS_MODES.includes(mode)) throw new CallApiError(400, "mode must be realtime or standard");
   const key = await credentials();
   const [{ templates, prompts }, firstMessage] = await Promise.all([resolveLiveSetupTemplates(), getPromptTemplate("calls/elevenlabs-first-message")]);
-  const system = agentInstructions(rehearsal.request, rehearsal.knowledge, rehearsal.context, templates["calls/agent-system"]);
+  const system = agentInstructions(rehearsal.request, rehearsal.knowledge, rehearsal.context, templates["calls/agent-system"], "elevenlabs");
   const firstName = rehearsal.request.lead?.firstName?.trim() ?? "";
   const { voice } = voiceForCall(voiceId);
   return traceGeneration(

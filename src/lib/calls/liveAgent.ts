@@ -321,6 +321,8 @@ export function agentInstructions(
   knowledge: KnowledgeDocument[],
   context: AgentPromptContext = {},
   template: string = PROMPTS["calls/agent-system"].template,
+  /** ElevenLabs sends no call notes; telling it about them made it write its own, spoken aloud. */
+  engine: "gemini" | "elevenlabs" = "gemini",
 ): string {
   const agentName = name ?? DEFAULT_AGENT_NAME;
   const female = (AGENT_VOICES.find((option) => option.id === voice)?.gender ?? "female") === "female";
@@ -329,6 +331,7 @@ export function agentInstructions(
     agent_name: agentName,
     who: [lead?.name, lead?.company ?? null, lead?.detail].filter(Boolean).join(", "),
     inbound: !!context.inbound,
+    call_notes: engine === "gemini",
     now: context.now ?? null,
     female,
     ...goalVariables(context.goal ?? null),

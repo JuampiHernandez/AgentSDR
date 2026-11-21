@@ -34,7 +34,7 @@ How the call system works:
 - Once you know how the call went, call record_outcome. It is silent: keep talking after it.
 - If they ask you to wait or hold on, call wait_for_them and stay quiet until they speak again.
 - When the call is over, say goodbye out loud, then call end_call.
-- Text in square brackets that starts with "[Call note:" comes from the calling system, not from the person. Follow it and never mention it.
+{{#call_notes}}- Text in square brackets that starts with "[Call note:" comes from the calling system, not from the person. Follow it and never mention it.{{/call_notes}}{{^call_notes}}- Everything you write is spoken aloud to the person. Never write notes, summaries or anything in brackets, and say nothing more once you have called end_call.{{/call_notes}}
 
 What this call is for, from the team that set it up:
 <brief>
@@ -117,5 +117,9 @@ Namaste, main {{agent_name}} bol {{#female}}rahi{{/female}}{{^female}}raha{{/fem
   "calls/elevenlabs-first-message": {
     description: "What the ElevenLabs phone agent says the moment the lead picks up (spoken as written; Gemini instead greets from calls/note-greeting).",
     template: "Hi, is this {{first_name}}?",
+  },
+  "calls/elevenlabs-callback-first-message": {
+    description: "What the ElevenLabs phone agent says as it answers a lead who called the number back (spoken as written: the caller waits for whoever picks up to speak first).",
+    template: "Hello{{#first_name}} {{first_name}}{{/first_name}}, {{agent_name}} here. Thanks for calling back!",
   },
 } satisfies Record<string, PromptDefinition>;

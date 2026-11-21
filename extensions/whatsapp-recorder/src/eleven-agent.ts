@@ -11,11 +11,19 @@
  * starts, which is while the call rings: it is held until the lead picks up
  * and has said hello, as LiveAgent holds Gemini's prepared greeting. While it
  * is held the lead's audio goes in as silence, so their "Hello?" does not
- * make the agent greet a second time. A call-back has no opening line: the
- * agent answers the caller's hello.
+ * make the agent greet a second time. A call-back has its own opening line
+ * (the caller waits for whoever picks up to speak first), made while it
+ * rings and played as soon as Accept is pressed.
  *
  * Measured on rehearsals (17 Nov 2026): replies start ~0.7–0.8 s after the
  * lead's last sound, against Gemini Live's ~1.2 s on calls.
+ *
+ * Audio is played the way ElevenLabs' own client plays it: an interruption
+ * carries an event id, and audio of an earlier reply that still arrives after
+ * it is dropped, not played over the lead. And once the agent has said goodbye
+ * and called end_call, a reply it makes after that is never played: the model
+ * answered the tool results with "[Call note: logged as wrong_person …]",
+ * spoken aloud on three calls (18–20 Nov 2026).
  */
 import type { AgentTokenResponse, ElevenLabsCallSession } from "../../../src/lib/calls/contract";
 import { GREETING_WAIT_MS, HELLO_MAX_WAIT_MS, HELLO_PAUSE_MS, MAX_HEARD_SAMPLES, VOICE_PEAK, fromBase64, toBase64, type AgentHandlers } from "./live-agent";
@@ -28,11 +36,11 @@ const HANGUP_MAX_WAIT_MS = 6_000;
 
 type ServerEvent =
   | { type: "conversation_initiation_metadata"; conversation_initiation_metadata_event?: { conversation_id?: string } }
-  | { type: "audio"; audio_event: { audio_base_64: string } }
+  | { type: "audio"; audio_event: { audio_base_64: string; event_id?: number } }
   | { type: "user_transcript"; user_transcription_event: { user_transcript: string } }
   | { type: "agent_response"; agent_response_event: { agent_response: string } }
   | { type: "agent_response_correction"; agent_response_correction_event: { corrected_agent_response: string } }
-  | { type: "interruption" }
+  | { type: "interruption"; interruption_event?: { event_id?: number } }
   | { type: "ping"; ping_event: { event_id: number } }
   | { type: "client_tool_call"; client_tool_call: { tool_name: string; tool_call_id: string; parameters?: Record<string, unknown> } };
 
@@ -56,6 +64,16 @@ export class ElevenAgent {
   private hangup: { reason: string; timer: ReturnType<typeof setTimeout> | null; maxTimer: ReturnType<typeof setTimeout> } | null = null;
   private heard: Int16Array[] | null = null;
   private heardSamples = 0;
+  /** Audio of replies before this event id was cut off by the lead: dropped. */
+  private interruptedBefore = 0;
+  /** The reply being played (its event id), and whether it began after the lead's last words. */
+  private replyEventId = -1;
+  private replyAfterLead = false;
+  /** Whether the reply being played has had its text (agent_response) yet. */
+  private replyTextSeen = false;
+  /** After the goodbye and end_call: replies after this event id are not played. */
+  private quietAfter: number | null = null;
+  private keptQuiet = false;
 
   constructor(
     private readonly handlers: AgentHandlers,
@@ -209,6 +227,20 @@ export class ElevenAgent {
         this.handlers.ready?.();
         break;
       case "audio": {
+        const id = message.audio_event.event_id;
+        if (typeof id === "number") {
+          if (id < this.interruptedBefore) break;
+          if (this.quietAfter !== null && id > this.quietAfter) {
+            if (!this.keptQuiet) this.handlers.trace("AI agent: said more after its goodbye and end_call — not played");
+            this.keptQuiet = true;
+            break;
+          }
+          if (id !== this.replyEventId) {
+            this.replyEventId = id;
+            this.replyAfterLead = true;
+            this.replyTextSeen = false;
+          }
+        }
         const pcm = fromBase64(message.audio_event.audio_base_64);
         if (this.firstAudio) {
           this.firstAudio = false;
@@ -221,13 +253,17 @@ export class ElevenAgent {
         else this.play(pcm);
         break;
       }
-      case "interruption":
+      case "interruption": {
+        const id = message.interruption_event?.event_id;
+        if (typeof id === "number") this.interruptedBefore = Math.max(this.interruptedBefore, id);
         this.playsUntil = Date.now();
         this.handlers.interrupt();
         break;
+      }
       case "user_transcript": {
         const text = message.user_transcription_event.user_transcript.trim();
         if (!text) break;
+        this.replyAfterLead = false;
         this.handlers.trace(`AI agent: heard "${text}"`);
         this.handlers.trace(`lead: ${text}`);
         this.handlers.transcript?.("lead", text, "turn");
@@ -236,6 +272,12 @@ export class ElevenAgent {
       case "agent_response": {
         const text = message.agent_response_event.agent_response.trim();
         if (!text) break;
+        if (this.quietAfter !== null && this.replyTextSeen) {
+          // The goodbye's text came already: this is a later reply, whose audio is not played.
+          this.handlers.trace(`agent (after end_call, not played): ${text}`);
+          break;
+        }
+        this.replyTextSeen = true;
         this.handlers.trace(`agent (turn): ${text}`);
         this.handlers.transcript?.("agent", text, "turn");
         break;
@@ -267,6 +309,9 @@ export class ElevenAgent {
     } else if (call.tool_name === "end_call") {
       const reason = text("reason") ?? "the agent ended the call";
       this.handlers.trace(`AI agent: ending the call after its goodbye (${reason})`);
+      // The goodbye is already being spoken (a reply began after the lead's last words): nothing after it is played.
+      // Otherwise the goodbye is still to come, and is played.
+      if (this.quietAfter === null && this.replyEventId >= 0 && this.replyAfterLead) this.quietAfter = this.replyEventId;
       if (!this.hangup) {
         this.hangup = { reason, timer: null, maxTimer: setTimeout(() => this.hangUpNow(), HANGUP_MAX_WAIT_MS) };
         this.scheduleHangup();
