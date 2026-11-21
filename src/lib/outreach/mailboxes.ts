@@ -4,6 +4,7 @@ import { mailboxes } from "./schema";
 import { testMailboxConnection } from "./gmail";
 import { channelRules } from "@/lib/channels/rules.server";
 import { mailboxHoursFromWeekly } from "./workingHours";
+import type { MailboxSettingsUpdate } from "./mailboxSettings";
 import { currentOrganizationId, inOrg } from "@/lib/tenancy/scope";
 
 export async function listMailboxes() {
@@ -13,6 +14,21 @@ export async function listMailboxes() {
 export async function getMailbox(id: string) {
   const [row] = await db.select().from(mailboxes).where(and(inOrg(mailboxes), eq(mailboxes.id, id))).limit(1);
   return row ?? null;
+}
+
+/**
+ * Changes a mailbox's display name and/or daily limit (parsed by
+ * `parseMailboxSettings`). Today's sent count is left alone, so lowering the
+ * limit below it just stops the mailbox for the rest of the day. False when
+ * the organization has no such mailbox.
+ */
+export async function updateMailboxSettings(id: string, update: MailboxSettingsUpdate): Promise<boolean> {
+  const [row] = await db
+    .update(mailboxes)
+    .set({ ...update, updatedAt: new Date() })
+    .where(and(inOrg(mailboxes), eq(mailboxes.id, id)))
+    .returning({ id: mailboxes.id });
+  return !!row;
 }
 
 export type ConnectMailboxResult =

@@ -6,6 +6,7 @@ import {
   RiCheckboxCircleLine,
   RiClockwiseLine,
   RiDeleteBinLine,
+  RiEditLine,
   RiErrorWarningLine,
   RiMailSendLine,
   RiMoreLine,
@@ -25,6 +26,7 @@ import type { mailboxes } from "@/lib/outreach/schema";
 import { cn } from "@/utils/cn";
 import WorkingHoursModal from "./WorkingHoursModal";
 import SignatureModal from "./SignatureModal";
+import MailboxSettingsModal from "./MailboxSettingsModal";
 import { useDialogs } from "@/components/DialogProvider";
 
 type Mailbox = typeof mailboxes.$inferSelect;
@@ -85,6 +87,7 @@ function MailboxTableRow({ mailbox }: { mailbox: Mailbox }) {
   const [testSendResult, setTestSendResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [showHours, setShowHours] = useState(false);
   const [showSignature, setShowSignature] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   async function handleRetest() {
     setBusy(true);
@@ -244,6 +247,10 @@ function MailboxTableRow({ mailbox }: { mailbox: Mailbox }) {
                   Send test email
                 </Dropdown.Item>
               )}
+              <Dropdown.Item onSelect={() => setShowSettings(true)}>
+                <Dropdown.ItemIcon as={RiEditLine} />
+                Name and daily limit
+              </Dropdown.Item>
               <Dropdown.Item onSelect={() => setShowHours(true)}>
                 <Dropdown.ItemIcon as={RiTimeLine} />
                 Sending hours
@@ -269,6 +276,16 @@ function MailboxTableRow({ mailbox }: { mailbox: Mailbox }) {
             mailboxAddress={mailbox.emailAddress}
             initial={mailbox.workingHours}
             onClose={() => setShowHours(false)}
+            onSaved={() => router.refresh()}
+          />
+        )}
+        {showSettings && (
+          <MailboxSettingsModal
+            mailboxId={mailbox.id}
+            mailboxAddress={mailbox.emailAddress}
+            initialDisplayName={mailbox.displayName}
+            initialDailySendLimit={mailbox.dailySendLimit}
+            onClose={() => setShowSettings(false)}
             onSaved={() => router.refresh()}
           />
         )}

@@ -75,7 +75,7 @@ Each row shows a status, how many emails went out today against the mailbox's da
 
 Only **Connected** mailboxes send. The cards above the table summarise **Connected**, **Needs attention**, **Sent today** and **Left today** (daily limits of connected mailboxes minus what they sent). Failed mailboxes are sorted to the top.
 
-Use the **...** menu on a row for **Test connection**, **Send test email** (connected mailboxes only), **Sending hours**, **Signature** and **Remove mailbox**. Removing a mailbox stops it sending, and emails scheduled from it do not go out.
+Use the **...** menu on a row for **Test connection**, **Send test email** (connected mailboxes only), **Name and daily limit**, **Sending hours**, **Signature** and **Remove mailbox**. Removing a mailbox stops it sending, and emails scheduled from it do not go out.
 
 ## Daily limit
 
@@ -83,9 +83,11 @@ A new mailbox starts with the organization's **Emails per day, per mailbox** rul
 
 The page warns above about 50 a day from one Google Workspace mailbox, because deliverability usually drops and Google may throttle it. New mailboxes should start low. You change the default under [Sending rules](/workspace/sending-rules).
 
-<Note>
-The mailbox table does not currently have a control for editing one mailbox's limit. The limit is copied from the organization rule when the mailbox is added.
-</Note>
+The limit is copied from the organization rule when the mailbox is added, so changing the rule later does not change mailboxes you already have. To change one mailbox, choose **Name and daily limit** in its **...** menu and set **Emails per day** (1 to 200). The dialog warns above 50. A lower limit takes effect at once; a higher one fills more of the queue from the next daily build.
+
+## Display name
+
+The display name is the name recipients see beside the address, such as "Alex from Acme". Each email goes out with the display name of the mailbox that sends it, so different mailboxes can show different people in the same campaign. Change it with **Name and daily limit** in the mailbox's **...** menu. Leave it empty to send with the address alone.
 
 ## Signature
 
