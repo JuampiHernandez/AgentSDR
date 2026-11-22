@@ -9,6 +9,28 @@ Each release lists the database migrations it needs; see
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-22
+
+**Upgrading from 0.3.1** needs the database migrations listed under
+Migrations below, run in order before the new image starts serving. The image
+does not contain them: run them from a checkout of this tag that can reach
+your database (see [Upgrading](docs/self-hosting/production.mdx#upgrading)). Each
+is guarded with IF NOT EXISTS and safe to re-run; upgrading a 0.3.1 database
+this way gives exactly the schema a fresh 0.4.0 install creates:
+
+```sh
+git clone --branch v0.4.0 https://github.com/Kandid-ai/AgentSDR && cd AgentSDR
+bun install --frozen-lockfile
+export DATABASE_URL=postgres://…   # add DATABASE_SSL=disable for the bundled Compose database
+for f in $(git log --reverse --diff-filter=A --name-only --format= v0.3.1..v0.4.0 -- 'scripts/add-*.ts' 'scripts/create-*.ts'); do
+  bun --conditions=react-server "$f" || break
+done
+```
+
+Then download the new `docker-compose.yml` (it names `0.4.0`) and
+`docker compose up -d`. No environment variable was removed or renamed; the
+new optional ones are under Configuration.
+
 ### Added
 
 - **Merge field fallbacks, 2026-11-21.** `{{firstName|there}}` sends
@@ -57,14 +79,132 @@ Each release lists the database migrations it needs; see
   mailbox; leads that already started keep theirs, so follow-ups stay in the
   same thread. Removing a mailbox takes it out of the campaigns that chose it.
 
+- **CRM follow-ups chase every lead until they move up a stage or say stop.**
+  Sending the reply from the CRM starts the stage's follow-ups. A sequence can
+  send its follow-ups, and its immediate reply, by itself (**Send follow-ups
+  automatically** / **Send the immediate reply automatically**, both off by
+  default), paced per sending account and inside its hours; email follow-ups
+  share the mailbox's gap and daily limit with campaigns. When a sequence runs
+  out it continues with the one it names, so a lead is never left idle; the
+  **Long-term loop** sends one useful touch every 21 days. A follow-up can go
+  out on the lead's other channel (email or LinkedIn). New organizations get
+  the ladder Interested, Meeting Booked, Meeting Done, Pilot, Customer (and
+  No-show) with a sequence per stage; `scripts/apply-crm-follow-up-template.ts`
+  brings an existing organization up to it.
+- **Meetings.** A draft can carry `{{booking_link}}`, sent as the lead's own
+  coded Cal.com link (a plain link to the same Cal.com user gets the code too).
+  The Cal.com integration's webhook books or moves the meeting and the stage; a
+  step can be timed before the meeting; after it, Action required asks "Did
+  they show up?".
+- **Out-of-office replies resume outreach** instead of reaching Action
+  required: the campaign enrollments and CRM follow-ups the reply stopped are
+  put back, due when they were or on the return day the notice gives. No draft
+  is written and the record keeps its stage.
+- **A hand-off to a new point of contact.** When a thread introduces someone
+  else, the draft goes To them with the original person in Cc. Both draft
+  editors show To and Cc.
+- **Follow up later** on a chosen date (with why and what to do; the follow-up
+  is drafted on the day) and **Discard lead**, from Action required.
+- **CRM drafts** are told who they go out as, today's date in the
+  organization's time zone and where the lead is in the sequence, and read the
+  organization's Knowledge whole.
+- **AI calling campaigns (Calling).** An AI agent calls leads over WhatsApp,
+  sends WhatsApp messages and follows up by itself, from a reach sequence and
+  a chase sequence for leads who agreed to a meeting but have not booked. Each
+  campaign picks its goal, CRM Knowledge, instructions and voice; organization
+  calling instructions live in Settings, Instructions, Calling. Calls go
+  through Gemini Live or, per campaign, ElevenLabs (the `elevenlabs`
+  integration); **Compare voices** rehearses a campaign's call with both.
+  Calling hours, calls a day, warm-up and gaps are WhatsApp Sending rules.
+  The agent also answers known leads who call back. Trial: see Configuration.
+- **Cloud calling stations.** A WhatsApp number whose WhatsApp Web runs in a
+  browser profile on a separate call worker (`services/call-worker`;
+  CloakBrowser by default, GoLogin or Playwright's Chromium), so calls and
+  messages need no rep's laptop. **Call now** lets a rep talk to a lead
+  through a station from their own AgentSDR tab, the audio relayed by the app.
+- **Langfuse** (prompts and tracing) is a per-organization integration in
+  Settings, AI provider. A connected organization's prompts come from its
+  Langfuse project and every model call is traced there; one that has not
+  connected uses the prompts in code and traces nothing.
+- **CompanyEnrich** company and people research integration for Tables.
+- **Analytics** shows conversion from interested to customer and from booking
+  links to meetings, and opens on the last 7 days.
+- Lead searches match full names across first and last name, email, title
+  and phone digits.
+
+### Changed
+
+- The Call campaigns page lists and creates AI campaigns only; a rep talks to
+  a lead with **Call now**. Existing rep campaigns keep their data and links.
+- A reply's AI classification always applies; the rep corrects the stage
+  before replying, rather than confirming every one.
+- AI-campaign booking links carry only a short code, not the contact's id.
+  Links sent earlier still match.
+- The brand font ships with the app instead of loading from Google Fonts.
+- The Calling pages no longer require the Unipile integration.
+
+### Fixed
+
+- CRM sequences: Skip step and Snooze no longer strand the steps after the
+  next one on an old version, where they were never drafted
+  (`scripts/repair-crm-stale-step-versions.ts` repairs runs affected earlier).
+- CRM send: a paused step's draft no longer blocks sending a reply on it.
+- The campaign sequence editor keeps edits across tabs.
+- The public demo no longer reloads in a loop on iPhone.
+- The inbox composer keeps Send in view while typing a long reply.
+- `{{booking_link}}` is refused where it cannot become a link.
+
+### Configuration
+
+All optional; nothing was removed or renamed. See
+[docs/configuration.md](docs/configuration.md).
+
+- `LANGFUSE_TRACING=off` stops traces for every organization (prompts keep
+  working); `LANGFUSE_TRACING_ENVIRONMENT` names the environment.
+- AI calling (trial): `GEMINI_API_KEY` (the live voice model's key, read from
+  env while this is a trial), `CALL_WORKER_SECRET` (shared with the call
+  worker), `AGENT_SAVE_HEARD_AUDIO` (test option).
+- Pause switches `PAUSE_CRM_AUTOSEND`, `PAUSE_CRM_FOLLOWUP_DRAFTS`,
+  `PAUSE_AI_CALLING`.
+- AI assistants (MCP) issue OAuth tokens for `<BETTER_AUTH_URL>/api/mcp`, so
+  `BETTER_AUTH_URL` must be the public address.
+
 ### Migrations
 
-- `bun run scripts/create-api-keys.ts` creates the `api_keys` table.
-- `bun run scripts/create-oauth-provider-tables.ts` creates `jwks` and the
-  `oauth_*` tables for AI assistants (MCP).
-- `bun run scripts/add-api-key-scopes.ts` adds `api_keys.scopes`.
-- `bun run scripts/add-campaign-mailboxes.ts` adds
-  `outreach_campaigns.mailbox_ids`.
+Run in this order (the loop above does exactly this). Each is
+`bun --conditions=react-server scripts/<name>.ts`.
+
+1. `create-calling-stations.ts`: `calling_stations` and the cloud-call
+   columns on `call_sessions`.
+2. `add-cloak-launcher.ts`: the CloakBrowser launcher option.
+3. `create-calling-proxies.ts`: `calling_proxies`.
+4. `add-calling-station-linked-phone.ts`, `add-calling-station-link-fresh.ts`.
+5. `add-call-session-timeline.ts`.
+6. `add-crm-auto-follow-ups.ts`: automatic CRM follow-up columns.
+7. `add-calling-station-lease.ts`.
+8. `add-call-session-agent-persona.ts`.
+9. `add-ai-calling-campaigns.ts`: AI calling campaigns.
+10. `add-ai-campaign-knowledge.ts`, `add-crm-calling-instructions.ts`,
+    `add-ai-lead-instructions.ts`.
+11. `add-call-session-direction.ts`, `add-call-session-remote-rep.ts`.
+12. `add-ai-booking-code.ts`, `add-ai-meeting-at.ts`.
+13. `create-api-keys.ts`: `api_keys`.
+14. `add-api-key-scopes.ts`: `api_keys.scopes`.
+15. `create-oauth-provider-tables.ts`: `jwks` and the `oauth_*` tables for AI
+    assistants (MCP).
+16. `add-crm-follow-up-system.ts`: sequence chaining, auto-sent replies and
+    `crm_meetings`.
+17. `add-crm-step-channel.ts`.
+18. `add-ai-voice-engine.ts`.
+19. `add-campaign-mailboxes.ts`: `outreach_campaigns.mailbox_ids`.
+20. `add-crm-draft-recipients.ts`: `crm_drafts.to_email` and `cc_emails`.
+
+Optional data scripts (dry run unless `--apply`; only if they apply to you):
+`apply-crm-follow-up-template.ts` (the new stage ladder and sequences for an
+existing organization), `backfill-crm-long-term-loop.ts` (idle interested
+leads into the Long-term loop), `queue-existing-crm-follow-ups.ts`,
+`repair-crm-stale-step-versions.ts`, `retry-crm-failed-classifications.ts`,
+`seed-langfuse-prompts.ts` (saving the Langfuse integration already does this).
 
 ## [0.3.1] - 2026-10-08
 
@@ -246,7 +386,8 @@ The first public release.
   before deploying). The `WHATSAPP_*` sending variables are no longer read —
   set those limits in Settings → WhatsApp → Sending rules.
 
-[Unreleased]: https://github.com/Kandid-ai/AgentSDR/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/Kandid-ai/AgentSDR/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Kandid-ai/AgentSDR/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/Kandid-ai/AgentSDR/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Kandid-ai/AgentSDR/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Kandid-ai/AgentSDR/compare/v0.1.0...v0.2.0

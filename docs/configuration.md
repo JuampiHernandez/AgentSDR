@@ -471,6 +471,9 @@ environment they take effect without a restart. All are read in
 | `PAUSE_LINKEDIN_RESOLUTION` | Stops LinkedIn profile resolution. |
 | `PAUSE_LINKEDIN_SEARCH` | Stops the LinkedIn search queue. |
 | `PAUSE_GRID_WORKER` | Stops the enrichment worker. |
+| `PAUSE_CRM_AUTOSEND` | Stops CRM follow-ups and replies that send themselves; their drafts wait until it is lifted. |
+| `PAUSE_CRM_FOLLOWUP_DRAFTS` | Stops drafting the follow-ups reps scheduled ("Follow up later") when they come due; no model calls while paused. |
+| `PAUSE_AI_CALLING` | Stops AI calling campaigns placing new calls and messages; calls already open still settle. |
 
 They are also an emergency brake: set `PAUSE_EMAIL_OUTBOUND=true` and restart,
 and sending stops without touching any data. Remove it and restart to resume.
@@ -525,6 +528,18 @@ in as the seeded demo user without a password, every write is refused, no
 background work starts, and the seeded data's dates move forward each day.
 Only for a deployment with its own database seeded by `bun run db:seed:demo`.
 See [Public demo](self-hosting/demo.mdx). Default off.
+
+## AI calling (trial)
+
+Only needed for AI agent calls on WhatsApp (**Calling**). Everything else about
+calling (Cloudflare R2 for recordings, GoLogin, Cal.com, ElevenLabs) is a
+per-organization integration, not env.
+
+| Variable | Default | What it does | Read in |
+|---|---|---|---|
+| `GEMINI_API_KEY` | none | Google AI key for the live voice model (Gemini Live). Read from env while AI calling is a trial; without it an AI agent call is refused. | `src/lib/calls/liveAgent.ts` |
+| `CALL_WORKER_SECRET` | none | Bearer secret the cloud call worker (`services/call-worker`) presents on `/api/call-worker/*`. Set the same value on the worker. Without it the worker API refuses every request. | `src/lib/calls/stations.ts` |
+| `AGENT_SAVE_HEARD_AUDIO` | `false` | Test option: `true` makes the recorder extension upload exactly what the model heard on each agent call. | `src/lib/calls/liveAgent.ts` |
 
 ## Set by the platform
 

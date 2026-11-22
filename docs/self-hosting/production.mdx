@@ -210,6 +210,9 @@ Operational kill switches, off by default. A value of `1`, `true`, `yes` or `on`
 | `PAUSE_LINKEDIN_RESOLUTION` | Stops LinkedIn profile resolution. |
 | `PAUSE_LINKEDIN_SEARCH` | Stops the LinkedIn search queue. |
 | `PAUSE_GRID_WORKER` | Stops the enrichment worker. |
+| `PAUSE_CRM_AUTOSEND` | Stops CRM follow-ups and replies that send themselves. |
+| `PAUSE_CRM_FOLLOWUP_DRAFTS` | Stops drafting follow-ups reps scheduled for later. |
+| `PAUSE_AI_CALLING` | Stops AI calling campaigns placing new calls and messages. |
 
 <Warning>
 `PEOPLE_MIGRATION_MODE` and `PAUSE_CAMPAIGN_MUTATIONS` also return 503 for `POST` calls to `/api/linkedin/jobs/*` and `/api/outreach/mailboxes/*`, which an external cron would call. They also stop the in-app LinkedIn jobs and the rollover's Gmail-watch and LinkedIn-reset parts. `PAUSE_EMAIL_OUTBOUND` and the other switches still apply inside the jobs. Leave them off in normal operation.
