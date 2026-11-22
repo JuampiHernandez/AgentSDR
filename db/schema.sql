@@ -1379,6 +1379,8 @@ CREATE TABLE public.crm_drafts (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     auto_send_at timestamp with time zone,
+    to_email text,
+    cc_emails jsonb,
     CONSTRAINT crm_drafts_channel_chk CHECK ((channel = ANY (ARRAY['email'::text, 'linkedin'::text, 'whatsapp'::text]))),
     CONSTRAINT crm_drafts_context_chk CHECK ((expected_context_version >= 0)),
     CONSTRAINT crm_drafts_linkedin_subject_chk CHECK (((channel <> 'linkedin'::text) OR (subject IS NULL))),

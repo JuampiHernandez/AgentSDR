@@ -1516,15 +1516,10 @@ async function runRecord(env: Env, p: Plan): Promise<void> {
     return;
   }
   if (p.first === "skip") {
-    // An auto-reply: nobody answers it. The follow-up waits for their return.
-    const tSkip = cap(env, mono(tNow, atWork(p, new Date(tNow.getTime() + (40 + cursor.next() * 500) * MINUTE), cursor.next())));
-    const [classification] = await db.select({ id: crmClassifications.id }).from(crmClassifications)
-      .where(eq(crmClassifications.crmRecordId, recordId)).orderBy(desc(crmClassifications.createdAt)).limit(1);
-    if (classification) await phase(p, tSkip, () => acknowledgeClassification({ classificationId: classification.id, actorRef: actor }));
-    await phase(p, new Date(tSkip.getTime() + 20_000), () => skipCurrentSequenceStep({ recordId, actorRef: actor }));
-    const tAfter = new Date(tSkip.getTime() + 20_000);
-    await fixSchedule(ctx, recordId, tAfter);
-    await drive(env, p, cursor, tAfter, new Date(ctx.now.getTime() - 20 * MINUTE), actor, { n: 0 });
+    // An auto-reply: nobody answers it. Classifying it as Out of Office has
+    // already put the stopped outreach back (src/lib/crm/outOfOffice.ts) —
+    // no draft, no sequence run, never in Action required — so there is
+    // nothing for a person to do.
     return;
   }
 
