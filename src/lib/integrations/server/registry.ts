@@ -6,6 +6,7 @@ import { CLEANLIST_HANDLERS } from "../cleanlist/actions";
 import { COMPANYENRICH_HANDLERS } from "../companyenrich/actions";
 import { CONTACTOUT_HANDLERS } from "../contactout/actions";
 import { FINDYMAIL_HANDLERS } from "../findymail/actions";
+import { FIRECRAWL_HANDLERS } from "../firecrawl/actions";
 import { FULLENRICH_HANDLERS } from "../fullenrich/actions";
 import { HUNTER_HANDLERS } from "../hunter/actions";
 import { ICYPEAS_HANDLERS } from "../icypeas/actions";
@@ -36,6 +37,7 @@ const HANDLERS: IntegrationActionHandlers = {
   ...SEMRUSH_HANDLERS,
   ...ROCKETREACH_HANDLERS,
   ...ICYPEAS_HANDLERS,
+  ...FIRECRAWL_HANDLERS,
 };
 
 for (const integration of INTEGRATIONS) {

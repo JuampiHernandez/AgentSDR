@@ -1,7 +1,7 @@
 # Integration structure
 
 Each external provider (`apollo`, `cleanlist`, `companyenrich`, `snov`, `millionverifier`, `contactout`, `findymail`, `fullenrich`,
-`hunter`, `leadmagic`, `lusha`, `zerobounce`, `similarweb`, `semrush`, `rocketreach`, `icypeas`) owns
+`hunter`, `leadmagic`, `lusha`, `zerobounce`, `similarweb`, `semrush`, `rocketreach`, `icypeas`, `firecrawl`) owns
 a folder under this directory:
 
 ```text
