@@ -60,8 +60,8 @@ Outbound usually means stitching together a lead database, an enrichment tool, a
       <p><b>Three channels, one lead record.</b> Email from your own mailboxes, LinkedIn invites and messages, WhatsApp chats and calls. <a href="https://docs.agentsdr.ai/concepts">How it fits together →</a></p>
     </td>
     <td width="50%" valign="top">
-      <a href="https://docs.agentsdr.ai/tables/overview"><img src="docs/assets/readme/enrichment.png" alt="Tables enriching a list with 15 providers"></a>
-      <p><b>Enrichment, built in.</b> Tables run 15 providers (Apollo, Hunter, Lusha and more), AI columns and HTTP calls, row by row. <a href="https://docs.agentsdr.ai/tables/overview">Tables →</a></p>
+      <a href="https://docs.agentsdr.ai/tables/overview"><img src="docs/assets/readme/enrichment.png" alt="Tables enriching a list with 17 providers"></a>
+      <p><b>Enrichment, built in.</b> Tables run 17 providers (Apollo, Hunter, Lusha and more), AI columns and HTTP calls, row by row. <a href="https://docs.agentsdr.ai/tables/overview">Tables →</a></p>
     </td>
   </tr>
   <tr>
@@ -133,7 +133,7 @@ Also inside: a lead database with custom fields, CSV and XLSX import with merge 
 | [Unipile](https://www.unipile.com) | LinkedIn and WhatsApp accounts, messaging and calling | [Unipile](https://docs.agentsdr.ai/integrations/unipile) |
 | [Cloudflare R2](https://www.cloudflare.com/developer-platform/r2/) | Call recordings and contact photos | [Cloudflare R2](https://docs.agentsdr.ai/integrations/cloudflare-r2) |
 | [OpenRouter](https://openrouter.ai) | Every AI feature, on your own key and any model | [OpenRouter](https://docs.agentsdr.ai/integrations/openrouter) |
-| 15 enrichment providers | Tables columns | [Enrichment providers](https://docs.agentsdr.ai/integrations/enrichment-providers) |
+| 17 enrichment providers | Tables columns | [Enrichment providers](https://docs.agentsdr.ai/integrations/enrichment-providers) |
 | [Resend](https://resend.com) | Sign-up, password-reset and invitation email | [Resend](https://docs.agentsdr.ai/integrations/resend) |
 
 <a id="quick-start"></a>
@@ -197,7 +197,7 @@ Every variable, with how to generate it and where it is read: [Configuration ref
 
 ```mermaid
 flowchart LR
-    A["Leads<br/>import or build a list"] --> B["Tables<br/>enrich with 15 providers and AI"]
+    A["Leads<br/>import or build a list"] --> B["Tables<br/>enrich with 17 providers and AI"]
     B --> C{"Reach out"}
     C --> D["Email<br/>your mailboxes"]
     C --> E["LinkedIn<br/>invites and messages"]
