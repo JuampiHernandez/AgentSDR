@@ -5,6 +5,7 @@ import { verifyCleanlistCredentials } from "./cleanlist/verify";
 import { verifyCompanyEnrichCredentials } from "./companyenrich/verify";
 import { verifyContactOutCredentials } from "./contactout/verify";
 import { verifyFindymailCredentials } from "./findymail/verify";
+import { verifyFirecrawlCredentials } from "./firecrawl/verify";
 import { verifyFullEnrichCredentials } from "./fullenrich/verify";
 import { verifyHunterCredentials } from "./hunter/verify";
 import { verifyIcypeasCredentials } from "./icypeas/verify";
@@ -34,6 +35,7 @@ const VERIFIERS: Record<string, (credentials: Record<string, string>) => Promise
   semrush: verifySemrushCredentials,
   rocketreach: verifyRocketReachCredentials,
   icypeas: verifyIcypeasCredentials,
+  firecrawl: verifyFirecrawlCredentials,
 };
 
 /** Dispatches credential checks to the provider-owned verifier. */

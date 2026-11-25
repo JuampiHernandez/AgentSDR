@@ -5,6 +5,7 @@ import { CLEANLIST } from "./cleanlist/definition";
 import { COMPANYENRICH } from "./companyenrich/definition";
 import { CONTACTOUT } from "./contactout/definition";
 import { FINDYMAIL } from "./findymail/definition";
+import { FIRECRAWL } from "./firecrawl/definition";
 import { FULLENRICH } from "./fullenrich/definition";
 import { HUNTER } from "./hunter/definition";
 import { ICYPEAS } from "./icypeas/definition";
@@ -52,6 +53,7 @@ export const INTEGRATIONS: readonly IntegrationDefinition[] = [
   SEMRUSH,
   ROCKETREACH,
   ICYPEAS,
+  FIRECRAWL,
 ];
 
 export function getIntegration(key: string): IntegrationDefinition | null {
