@@ -9,6 +9,8 @@ import * as Modal from "@/components/alignui/modal";
 import { Callout, Field } from "@/components/settings/SettingsKit";
 import { numberRule } from "@/lib/channels/rules";
 import { MAX_DISPLAY_NAME_LENGTH } from "@/lib/outreach/mailboxSettings";
+import type { WorkingHours } from "@/lib/outreach/schema";
+import { capacityShortfall, describeShortfall, mailboxDayWindows } from "@/lib/outreach/sendWindow";
 
 const LIMIT = numberRule("email", "dailySendLimit");
 
@@ -22,6 +24,8 @@ export default function MailboxSettingsModal({
   mailboxAddress,
   initialDisplayName,
   initialDailySendLimit,
+  workingHours,
+  sendGapMinutes,
   onClose,
   onSaved,
 }: {
@@ -29,6 +33,9 @@ export default function MailboxSettingsModal({
   mailboxAddress: string;
   initialDisplayName: string | null;
   initialDailySendLimit: number;
+  /** The mailbox's hours and the organization's gap, to warn when the limit can't fit in them. */
+  workingHours: WorkingHours;
+  sendGapMinutes: [number, number];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -39,6 +46,7 @@ export default function MailboxSettingsModal({
 
   const limitNumber = Number(limit);
   const limitValid = limit.trim() !== "" && Number.isInteger(limitNumber) && limitNumber >= LIMIT.min && limitNumber <= LIMIT.max;
+  const shortfall = limitValid ? capacityShortfall(mailboxDayWindows(workingHours), limitNumber, sendGapMinutes) : null;
   const risky = limitValid && LIMIT.safe?.above !== undefined && limitNumber > LIMIT.safe.above;
 
   async function handleSave() {
@@ -117,6 +125,7 @@ export default function MailboxSettingsModal({
           </Field>
 
           {risky && LIMIT.warning && <Callout tone="warning">{LIMIT.warning}</Callout>}
+          {shortfall && <Callout tone="warning">{describeShortfall(shortfall)}</Callout>}
           {error && <Callout tone="error">{error}</Callout>}
         </Modal.Body>
         <Modal.Footer>

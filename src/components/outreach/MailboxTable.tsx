@@ -80,7 +80,7 @@ function hoursSummary(mailbox: Mailbox) {
   return `${dayLabel}, ${first.from}–${first.to}`;
 }
 
-function MailboxTableRow({ mailbox }: { mailbox: Mailbox }) {
+function MailboxTableRow({ mailbox, sendGapMinutes }: { mailbox: Mailbox; sendGapMinutes: [number, number] }) {
   const dialogs = useDialogs();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -275,6 +275,8 @@ function MailboxTableRow({ mailbox }: { mailbox: Mailbox }) {
             mailboxId={mailbox.id}
             mailboxAddress={mailbox.emailAddress}
             initial={mailbox.workingHours}
+            dailySendLimit={mailbox.dailySendLimit}
+            sendGapMinutes={sendGapMinutes}
             onClose={() => setShowHours(false)}
             onSaved={() => router.refresh()}
           />
@@ -285,6 +287,8 @@ function MailboxTableRow({ mailbox }: { mailbox: Mailbox }) {
             mailboxAddress={mailbox.emailAddress}
             initialDisplayName={mailbox.displayName}
             initialDailySendLimit={mailbox.dailySendLimit}
+            workingHours={mailbox.workingHours}
+            sendGapMinutes={sendGapMinutes}
             onClose={() => setShowSettings(false)}
             onSaved={() => router.refresh()}
           />
@@ -303,7 +307,7 @@ function MailboxTableRow({ mailbox }: { mailbox: Mailbox }) {
   );
 }
 
-export default function MailboxTable({ mailboxes }: { mailboxes: Mailbox[] }) {
+export default function MailboxTable({ mailboxes, sendGapMinutes }: { mailboxes: Mailbox[]; sendGapMinutes: [number, number] }) {
   return (
     <Table.Root className="min-w-190 [&>table]:table-fixed">
       <Table.Header>
@@ -317,7 +321,7 @@ export default function MailboxTable({ mailboxes }: { mailboxes: Mailbox[] }) {
       </Table.Header>
       <Table.Body spacing={4}>
         {mailboxes.map((m) => (
-          <MailboxTableRow key={m.id} mailbox={m} />
+          <MailboxTableRow key={m.id} mailbox={m} sendGapMinutes={sendGapMinutes} />
         ))}
       </Table.Body>
     </Table.Root>

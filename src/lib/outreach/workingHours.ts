@@ -1,10 +1,11 @@
 /**
- * Timezone-aware working-hours window check — ported from AgentSDR-app's
- * send-mails.ts (isNowWithinDayWindow), scoped to a mailbox instead of a
- * purchased domain. Handles overnight windows (e.g. 9pm-6am) by shifting
- * the window to the correct calendar day depending on where `now` falls.
+ * Timezone-aware working-hours window check, scoped to a mailbox. A day's
+ * window runs from `from` to `to` on that calendar day, in the mailbox's
+ * timezone. There are no overnight windows: a day whose end is at or before
+ * its start sends nothing, as the Sending hours dialog says (issue #18; the
+ * rules themselves are in sendWindow.ts).
  */
-import { isWithinInterval, addDays, set as setTime } from "date-fns";
+import { isWithinInterval, set as setTime } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import type { WorkingHours, WorkingDay } from "./schema";
 import type { WeeklyHours } from "@/lib/channels/rules";
@@ -24,22 +25,11 @@ function isWithinDayWindow(day: WorkingDay, now: Date, timezone: string): boolea
   const startTodayLocal = setTime(zonedNow, { hours: sh, minutes: sm, seconds: 0, milliseconds: 0 });
   const endTodayLocal = setTime(zonedNow, { hours: eh, minutes: em, seconds: 0, milliseconds: 0 });
 
-  let startLocal = startTodayLocal;
-  let endLocal = endTodayLocal;
+  // An end at or before the start is an empty window, never an overnight one.
+  if (endTodayLocal <= startTodayLocal) return false;
 
-  // Overnight window (e.g. 21:00-06:00): figure out which calendar day it started on.
-  if (endTodayLocal <= startTodayLocal) {
-    if (zonedNow <= endTodayLocal) {
-      startLocal = addDays(startTodayLocal, -1);
-      endLocal = endTodayLocal;
-    } else {
-      startLocal = startTodayLocal;
-      endLocal = addDays(endTodayLocal, 1);
-    }
-  }
-
-  const startUtc = fromZonedTime(startLocal, timezone);
-  const endUtc = fromZonedTime(endLocal, timezone);
+  const startUtc = fromZonedTime(startTodayLocal, timezone);
+  const endUtc = fromZonedTime(endTodayLocal, timezone);
   return isWithinInterval(now, { start: startUtc, end: endUtc });
 }
 

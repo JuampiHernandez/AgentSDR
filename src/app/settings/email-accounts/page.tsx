@@ -5,6 +5,7 @@ import { SettingsPage } from "@/components/settings/SettingsPage";
 import { requirePageOrgContext } from "@/lib/auth/context";
 import { runInOrganization } from "@/lib/tenancy/scope";
 import { listMailboxes } from "@/lib/outreach/mailboxes";
+import { channelRules } from "@/lib/channels/rules.server";
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +13,8 @@ export const metadata = { title: "Email accounts" };
 
 async function Mailboxes() {
   const ctx = await requirePageOrgContext();
-  const mailboxes = await runInOrganization(ctx.organizationId, () => listMailboxes());
-  return <MailboxesPageClient mailboxes={mailboxes} />;
+  const [mailboxes, rules] = await runInOrganization(ctx.organizationId, () => Promise.all([listMailboxes(), channelRules("email")]));
+  return <MailboxesPageClient mailboxes={mailboxes} sendGapMinutes={rules.sendGapMinutes} />;
 }
 
 export default function EmailAccountsPage() {

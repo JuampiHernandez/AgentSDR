@@ -9,6 +9,7 @@ import type { PlatformKey } from "@/lib/platform/catalog";
 import { listPlatformStatus } from "@/lib/platform/credentials";
 import { runInOrganization } from "@/lib/tenancy/scope";
 import { calcomWebhookUrl } from "@/lib/calls/aiCampaigns/booking";
+import { listMailboxes } from "@/lib/outreach/mailboxes";
 
 /** The URL a platform's own webhook settings take, for the platforms that need one pasted. */
 function platformWebhookUrl(platform: PlatformKey, organizationId: string): string | null | undefined {
@@ -64,10 +65,19 @@ export async function ConnectionSettingsPage({
 
 export async function RulesSettingsPage({ channel, title, description }: { channel: Channel; title: string; description: string }) {
   const ctx = await requirePageOrgContext();
-  const { values } = await runInOrganization(ctx.organizationId, () => channelRulesForSettings(channel));
+  const [{ values }, mailboxes] = await runInOrganization(ctx.organizationId, () =>
+    Promise.all([
+      channelRulesForSettings(channel),
+      // Email's form checks each connected mailbox's own limit and hours against the gap being edited.
+      channel === "email" ? listMailboxes() : Promise.resolve(null),
+    ]),
+  );
+  const mailboxCapacity = mailboxes
+    ?.filter((m) => m.status === "connected")
+    .map((m) => ({ dailySendLimit: m.dailySendLimit, workingHours: m.workingHours }));
   return (
     <SettingsPage title={title} description={description} width="narrow">
-      <ChannelRulesForm channel={channel} initialValues={values} canEdit={can(ctx, { integrations: ["manage"] })} />
+      <ChannelRulesForm channel={channel} initialValues={values} canEdit={can(ctx, { integrations: ["manage"] })} mailboxes={mailboxCapacity} />
     </SettingsPage>
   );
 }

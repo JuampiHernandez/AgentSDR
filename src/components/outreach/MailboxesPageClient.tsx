@@ -17,7 +17,7 @@ type Mailbox = typeof mailboxes.$inferSelect;
 
 const healthy = (m: Mailbox) => m.status === "connected";
 
-export default function MailboxesPageClient({ mailboxes }: { mailboxes: Mailbox[] }) {
+export default function MailboxesPageClient({ mailboxes, sendGapMinutes }: { mailboxes: Mailbox[]; sendGapMinutes: [number, number] }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<AccountFilter>("all");
   const [page, setPage] = useState(0);
@@ -106,7 +106,7 @@ export default function MailboxesPageClient({ mailboxes }: { mailboxes: Mailbox[
         searchPlaceholder="Search mailboxes…"
         footer={<AccountsPager page={current} total={filtered.length} noun="mailboxes" onPage={setPage} />}
       >
-        {filtered.length === 0 ? <AccountsNoMatch noun="mailboxes" /> : <MailboxTable mailboxes={visible} />}
+        {filtered.length === 0 ? <AccountsNoMatch noun="mailboxes" /> : <MailboxTable mailboxes={visible} sendGapMinutes={sendGapMinutes} />}
       </AccountsFrame>
     </div>
   );

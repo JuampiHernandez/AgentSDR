@@ -9,6 +9,7 @@ import * as Modal from "@/components/alignui/modal";
 import * as Select from "@/components/alignui/select";
 import { Callout, Field } from "@/components/settings/SettingsKit";
 import type { WorkingHours } from "@/lib/outreach/schema";
+import { capacityShortfall, describeShortfall, mailboxDayWindows } from "@/lib/outreach/sendWindow";
 import { cn } from "@/utils/cn";
 
 const DAYS: { key: keyof WorkingHours["days"]; label: string }[] = [
@@ -34,7 +35,7 @@ const COMMON_TIMEZONES = [
   "UTC",
 ];
 
-/** A native time input in the AlignUI field style; the error ring marks a window that ends before it starts. */
+/** A native time input in the AlignUI field style; the error ring marks a window that ends at or before it starts. */
 export const timeInputClass =
   "h-9 w-full min-w-0 rounded-lg bg-bg-white-0 px-2.5 text-paragraph-sm tabular-nums text-text-strong-950 shadow-regular-xs outline-none ring-1 ring-inset ring-stroke-soft-200 transition hover:bg-bg-weak-50 focus:shadow-button-important-focus focus:ring-stroke-strong-950 disabled:bg-bg-weak-50 disabled:text-text-disabled-300 disabled:shadow-none disabled:ring-transparent";
 
@@ -42,12 +43,17 @@ export default function WorkingHoursModal({
   mailboxId,
   mailboxAddress,
   initial,
+  dailySendLimit,
+  sendGapMinutes,
   onClose,
   onSaved,
 }: {
   mailboxId: string;
   mailboxAddress?: string;
   initial: WorkingHours;
+  /** The mailbox's own limit and the organization's gap, to warn when the limit can't fit in these hours. */
+  dailySendLimit: number;
+  sendGapMinutes: [number, number];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -61,9 +67,11 @@ export default function WorkingHoursModal({
 
   const enabledCount = DAYS.filter(({ key }) => value.days[key].enabled).length;
   const inverted = DAYS.filter(({ key }) => value.days[key].enabled && value.days[key].from >= value.days[key].to);
+  const shortfall = inverted.length ? null : capacityShortfall(mailboxDayWindows(value), dailySendLimit, sendGapMinutes);
   const timezones = COMMON_TIMEZONES.includes(value.timezone) ? COMMON_TIMEZONES : [value.timezone, ...COMMON_TIMEZONES];
 
   async function handleSave() {
+    if (inverted.length) return;
     setSaving(true);
     setError(null);
     try {
@@ -73,7 +81,8 @@ export default function WorkingHoursModal({
         body: JSON.stringify({ workingHours: value }),
       });
       if (!res.ok) {
-        setError("The sending hours were not saved. Please try again.");
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(data?.error ?? "The sending hours were not saved. Please try again.");
         return;
       }
       onSaved();
@@ -153,17 +162,18 @@ export default function WorkingHoursModal({
           </fieldset>
 
           {inverted.length > 0 && (
-            <Callout tone="warning">
-              {inverted.map((d) => d.label).join(", ")} {inverted.length === 1 ? "ends" : "end"} before {inverted.length === 1 ? "it starts" : "they start"}, so nothing will send then.
+            <Callout tone="error">
+              {inverted.map((d) => d.label).join(", ")} {inverted.length === 1 ? "ends" : "end"} at or before {inverted.length === 1 ? "it starts" : "they start"}. Set an end time after the start, or turn the day off.
             </Callout>
           )}
+          {shortfall && <Callout tone="warning">{describeShortfall(shortfall)}</Callout>}
           {error && <Callout tone="error">{error}</Callout>}
         </Modal.Body>
         <Modal.Footer>
           <Button.Root variant="neutral" mode="stroke" size="small" onClick={onClose}>
             Cancel
           </Button.Root>
-          <Button.Root variant="primary" mode="filled" size="small" disabled={saving} onClick={handleSave}>
+          <Button.Root variant="primary" mode="filled" size="small" disabled={saving || inverted.length > 0} onClick={handleSave}>
             {saving ? "Saving…" : "Save hours"}
           </Button.Root>
         </Modal.Footer>

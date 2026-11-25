@@ -11,6 +11,8 @@ import { Frame, FramePanel } from "@/components/analytics/kit/Frame";
 import { Callout, FieldRow } from "@/components/settings/SettingsKit";
 import { timeInputClass } from "@/components/outreach/WorkingHoursModal";
 import { ruleError, rulesOf, ruleWarning, type Channel, type Rule, type WeeklyHours } from "@/lib/channels/rules";
+import type { WorkingHours } from "@/lib/outreach/schema";
+import { capacityShortfall, describeShortfall, mailboxDayWindows, weeklyDayWindows } from "@/lib/outreach/sendWindow";
 import { cn } from "@/utils/cn";
 
 /**
@@ -174,14 +176,45 @@ function CountryInput({ id, value, onChange, disabled }: { id: string; value: st
   );
 }
 
+/**
+ * Email only: whether the daily limit fits inside the sending hours at the
+ * gap between emails, for a new mailbox (these rules) and for each connected
+ * mailbox (its own limit and hours, this gap).
+ */
+function emailCapacityWarnings(
+  values: Values,
+  errors: Record<string, string | null>,
+  mailboxes: { dailySendLimit: number; workingHours: WorkingHours }[],
+): string[] {
+  if (errors.sendGapMinutes) return [];
+  const gap = values.sendGapMinutes as [number, number];
+  const warnings: string[] = [];
+  if (!errors.dailySendLimit && !errors.sendingHours) {
+    const own = capacityShortfall(weeklyDayWindows(values.sendingHours as WeeklyHours), values.dailySendLimit as number, gap);
+    if (own) warnings.push(describeShortfall(own, "a new mailbox", "above"));
+  }
+  const short = mailboxes.filter((m) => capacityShortfall(mailboxDayWindows(m.workingHours), m.dailySendLimit, gap)).length;
+  if (short) {
+    warnings.push(
+      `${short === mailboxes.length ? (short === 1 ? "Your connected mailbox" : `All ${short} connected mailboxes`) : `${short} of ${mailboxes.length} connected mailboxes`} ` +
+        `can't send ${short === 1 ? "its" : "their"} full daily limit inside ${short === 1 ? "its" : "their"} own sending hours at this gap. ` +
+        `Shorten the gap, or change ${short === 1 ? "its" : "their"} hours or limit in Email → Mailboxes.`,
+    );
+  }
+  return warnings;
+}
+
 export function ChannelRulesForm({
   channel,
   initialValues,
   canEdit,
+  mailboxes,
 }: {
   channel: Channel;
   initialValues: Values;
   canEdit: boolean;
+  /** Email: the connected mailboxes' own limits and hours, for the capacity warning. */
+  mailboxes?: { dailySendLimit: number; workingHours: WorkingHours }[];
 }) {
   const router = useRouter();
   const rules = rulesOf(channel);
@@ -192,6 +225,7 @@ export function ChannelRulesForm({
 
   const errors = Object.fromEntries(rules.map((rule) => [rule.key, ruleError(rule, values[rule.key])]));
   const hasErrors = Object.values(errors).some(Boolean);
+  const capacityWarnings = channel === "email" ? emailCapacityWarnings(values, errors, mailboxes ?? []) : [];
   const dirty = rules.some((rule) => !same(values[rule.key], saved[rule.key]));
 
   const set = (key: string, value: unknown) => {
@@ -303,6 +337,9 @@ export function ChannelRulesForm({
           })}
         </FramePanel>
       </Frame>
+      {capacityWarnings.map((text) => (
+        <Callout key={text} tone="warning">{text}</Callout>
+      ))}
       {canEdit && (
         <div className="flex flex-wrap items-center justify-end gap-3">
           {status && <span role={status.tone === "error" ? "alert" : "status"} className={cn("text-paragraph-sm", status.tone === "error" ? "text-error-base" : "text-success-base")}>{status.text}</span>}
