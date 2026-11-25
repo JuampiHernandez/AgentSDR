@@ -16,5 +16,6 @@ jobs:
         with:
           fail-on-severity: high
           # MIT project: refuse source-available licences that would restrict what users of AgentSDR may do.
-          deny-licenses: SSPL-1.0, BUSL-1.1, Commons-Clause
+          # Only valid SPDX ids: "Commons-Clause" is not one, and the action errored on every PR with it listed.
+          deny-licenses: SSPL-1.0, BUSL-1.1
           comment-summary-in-pr: on-failure
