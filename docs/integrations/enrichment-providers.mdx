@@ -1,6 +1,6 @@
 ---
 title: "Enrichment providers"
-description: "The 15 enrichment providers you can connect from Tables, what each returns, and where to find each provider's API key."
+description: "The 17 enrichment providers you can connect from Tables, what each returns, and where to find each provider's API key."
 icon: "zap"
 ---
 
@@ -16,7 +16,7 @@ Enrichment providers are data services that find emails, phone numbers and compa
 
 ## Overview
 
-AgentSDR supports 15 providers. Each has its own connection (an API key, or a client ID and secret for Snov.io), verified with a live call before it is saved. Connections belong to your organization, are encrypted with `INTEGRATION_CREDENTIALS_KEY`, and are never sent back to the browser. There is no environment fallback.
+AgentSDR supports 17 providers. Each has its own connection (an API key, or a client ID and secret for Snov.io), verified with a live call before it is saved. Connections belong to your organization, are encrypted with `INTEGRATION_CREDENTIALS_KEY`, and are never sent back to the browser. There is no environment fallback.
 
 **Credits are billed by the vendor.** Each enrichment run spends credits or units on your own account with that provider. AgentSDR adds no markup, does not convert credits to money and shows no per-run price. Watch usage in the provider's dashboard and test a column on 10 rows before running a whole table.
 
@@ -26,8 +26,10 @@ AgentSDR supports 15 providers. Each has its own connection (an API key, or a cl
 |---|---|---|---|
 | **Apollo.io** | Find person by email, find work email, enrich person (LinkedIn URL) and company (domain), people at a company by job title, open jobs, and actions on your Apollo workspace (contacts, accounts, sequences). | API key | Settings → Integrations → API Keys → Create new key. Some endpoints need a master key. [Vendor docs](https://docs.apollo.io/docs/create-api-key) |
 | **Cleanlist** | People and company search with filters; enrich a person (email, phone, job, LinkedIn) or company (industry, size, funding, tech stack). | API key | Portal: Settings → API Keys → Generate Key. Cleanlist's docs say API access needs a Pro plan or above. Shown once. [Vendor docs](https://docs.cleanlist.ai/mcp-api/authentication) |
+| **CompanyEnrich** | Enrich a company from its domain; search companies by name, domain, description or filters; search professional profiles by employer domain and job title (profiles only, no email addresses). | API key | Your CompanyEnrich dashboard, where you generate API tokens. [Vendor docs](https://docs.companyenrich.com/reference/get_me) |
 | **ContactOut** | LinkedIn URL from a personal email; mobile numbers and personal emails from a LinkedIn URL. | API token | ContactOut's docs say to request an API key by booking a meeting with them. [Vendor docs](https://api.contactout.com/#authentication) |
 | **Findymail** | Validate an email; find a work email from a name and domain or a LinkedIn URL; find a mobile phone. | API key | Your Findymail account's API page (app.findymail.com/user/api-tokens). [Vendor docs](https://app.findymail.com/docs/) |
+| **Firecrawl** | Read a company website or any page as clean Markdown, with an optional JSON summary of the company (description, products, pricing model, hiring signals); search the web, with each result page as Markdown if you ask for it. | API key | Firecrawl dashboard, API keys page (firecrawl.dev/app/api-keys). [Vendor docs](https://docs.firecrawl.dev/api-reference/introduction?utm_source=agentsdr&utm_medium=integration#authentication) |
 | **FullEnrich** | Work email and mobile phone from a LinkedIn URL (waterfall on FullEnrich's side, asynchronous). | API key | The API page of the FullEnrich app (link). [Vendor docs](https://app.fullenrich.com/app/api) |
 | **Hunter** | Verify an email; find emails for a company domain; find a person's work email. | API key | Dashboard, API keys page (hunter.io/api-keys). [Vendor docs](https://hunter.io/api-documentation/v2#authentication) |
 | **Icypeas** | Verify an email; find work email, professional profile, people at a company, emails for a domain; enrich a profile or company. | API key | Sidebar API section, where you enable API access to see the key. [Vendor docs](https://api-doc.icypeas.com/api-auth/access-keys/) |
