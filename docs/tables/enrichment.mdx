@@ -4,7 +4,7 @@ description: "Connect data providers such as Apollo, Hunter and Lusha, and add e
 icon: "zap"
 ---
 
-An enrichment column calls a data provider once per row. You map the provider's inputs (for example a LinkedIn URL) to columns in your table, pick which results you want, and each result becomes its own column. AgentSDR supports 15 providers.
+An enrichment column calls a data provider once per row. You map the provider's inputs (for example a LinkedIn URL) to columns in your table, pick which results you want, and each result becomes its own column. AgentSDR supports 17 providers.
 
 ## Connect a provider account
 
@@ -45,7 +45,7 @@ Some actions are searches that take filters (Cleanlist's people and company sear
 
 Providers that work asynchronously, such as FullEnrich and RocketReach, show the cell as **Waiting for provider...** until the result arrives. See [Tables](/tables/overview) for statuses and retries.
 
-## The 15 providers
+## The 17 providers
 
 Each provider's setup screen lists the credentials it needs and the actions it offers.
 
@@ -72,6 +72,8 @@ Each provider's setup screen lists the credentials it needs and the actions it o
 
 - **Similarweb** (API key): monthly visits, traffic by geography, pages per visit, bounce rate, average visit duration, global traffic rank and website technologies.
 - **Semrush** (API key): traffic analytics, paid search competitors, traffic sources, top pages, social media engagement and geographic distribution.
+- **CompanyEnrich** (API key): Enrich company by domain, Search companies, Search professional profiles (profiles only, no email addresses).
+- **Firecrawl** (API key): Scrape company website, returning the page as Markdown with its title, meta description and final URL, plus an optional JSON summary of the company; Search the web, returning the title, URL and snippet of each result, with optional page Markdown. The JSON summary and page Markdown use more Firecrawl credits.
 
 ### What the typical outputs are
 

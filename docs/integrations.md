@@ -47,7 +47,7 @@ Connecting, editing and disconnecting an integration needs the **owner** or
 | Cloudflare R2 | WhatsApp call recordings and contact photos | Settings, WhatsApp, Integrations | [Cloudflare R2](integrations/cloudflare-r2.mdx) |
 | OpenRouter | Every AI feature: reply classification and drafts, AI columns, call transcription | Settings, AI provider | [OpenRouter](integrations/openrouter.mdx) |
 | Langfuse (optional) | Editing the AI's prompts (versioned) and tracing every AI call | Settings, AI provider | [Langfuse](integrations/langfuse.mdx) |
-| Enrichment providers (15) | Enrichment columns in Tables | Inside Tables: Actions, Add enrichment, Add account | [Enrichment providers](integrations/enrichment-providers.mdx) |
+| Enrichment providers (17) | Enrichment columns in Tables | Inside Tables: Actions, Add enrichment, Add account | [Enrichment providers](integrations/enrichment-providers.mdx) |
 | Resend (per instance) | Verification, password-reset and invitation email | Environment: `RESEND_API_KEY`, `AUTH_EMAIL_FROM` | [Resend](integrations/resend.mdx) |
 | Google sign-in (per instance) | The "Continue with Google" button | Environment: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | [Google sign-in](integrations/google-sign-in.mdx) |
 
